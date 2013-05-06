@@ -28,10 +28,24 @@
 
 #define PAGE_SIZE_BITS 16
 #define PAGE_SIZE (1<<PAGE_SIZE_BITS)
+#define PAGE_MASK (PAGE_SIZE-1)
 #define NUM_PAGE_TABLES (1<<(32 - PAGE_SIZE_BITS))
+#define WORDS_PER_PAGE (1<<(PAGE_SIZE_BITS-2))
 #define MAX_MEMORY (1<<26)
 
+#define PERM_READ    4
+#define PERM_WRITE   2
+#define PERM_EXECUTE 1
 
+#define FLAG_INIT 1
+
+typedef enum {
+    ARMV2STATUS_OK = 0,
+    ARMV2STATUS_INVALID_CPUSTATE,
+    ARMV2STATUS_MEMORY_ERROR,
+    ARMV2STATUS_VALUE_ERROR,
+    ARMV2STATUS_IO_ERROR,
+} armv2status_t;
 
 typedef struct {
     uint32_t r[NUMREGS];
@@ -43,14 +57,18 @@ typedef struct {
     uint32_t *memory;
     access_callback_t read_callback;
     access_callback_t write_callback;
+    uint32_t flags;
 } page_info_t;
 
 typedef struct {
     regs_t regs;
     uint32_t *physical_ram;
+    uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];
+    uint32_t flags;
 } armv2_t;
 
 
-int init_armv2(uint32_t memsize, armv2_t *cpu);
-int cleanup_armv2(armv2_t *cpu);
+armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize);
+armv2status_t load_rom(armv2_t *cpu, const char *filename);
+armv2status_t cleanup_armv2(armv2_t *cpu);
