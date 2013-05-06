@@ -50,6 +50,7 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
             goto cleanup;
         }
         page_info->memory = cpu->physical_ram + i*WORDS_PER_PAGE;
+        LOG("Page %u memory %p\n",i,(void*)page_info->memory);
         page_info->flags |= (PERM_READ|PERM_EXECUTE|PERM_WRITE);
         if(i == 0) {
             //the first page is never writable, we'll put the boot rom there.
@@ -59,6 +60,7 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     }
 
     cpu->flags = FLAG_INIT;
+    cpu->regs.r[PC] = MODE_SUP;
 
 cleanup:
     if(retval != ARMV2STATUS_OK) {
@@ -69,6 +71,7 @@ cleanup:
 }
 
 armv2status_t cleanup_armv2(armv2_t *cpu) {
+    LOG("ARMV2 cleanup\n");
     if(NULL == cpu) {
         return ARMV2STATUS_OK;
     }
@@ -93,7 +96,6 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
         return ARMV2STATUS_OK;
     }
     if(!(cpu->flags&FLAG_INIT)) {
-        LOG("Load rom called on uninitialised cpu\n");
         return ARMV2STATUS_INVALID_CPUSTATE;
     }
     if(NULL == cpu->page_tables[0] || NULL == cpu->page_tables[0]->memory) {
@@ -105,7 +107,7 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
         return ARMV2STATUS_IO_ERROR;
     }
     
-    read_bytes = fread(cpu->page_tables[0],1,PAGE_SIZE,f);
+    read_bytes = fread(cpu->page_tables[0]->memory,1,PAGE_SIZE,f);
     //24 is the bare minimum for a rom, as the vectors go up to 0x20, and then you need at least one instruction
     if(read_bytes < 0x24) {
         LOG("Error");
@@ -116,7 +118,16 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
 close_file:
     fclose(f);
     return retval;
-    
+}
+
+armv2status_t run_armv2(armv2_t *cpu) {
+    uint32_t running = 1;
+    while(running) {
+        uint32_t instruction = DEREF(cpu,cpu->pc);
+        LOG("Executing instruction %08x\n",instruction);
+        exit(0);
+    }
+    return ARMV2STATUS_OK;
 }
 
 int main(int argc, char *argv[]) {
@@ -131,6 +142,7 @@ int main(int argc, char *argv[]) {
         LOG("Error loading rom %d\n",result);
         return result;
     }
+    run_armv2(&armv2);
     goto cleanup;
 
 cleanup:

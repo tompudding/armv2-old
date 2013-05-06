@@ -33,9 +33,26 @@
 #define WORDS_PER_PAGE (1<<(PAGE_SIZE_BITS-2))
 #define MAX_MEMORY (1<<26)
 
+#define PAGEOF(addr) ((addr)>>PAGE_SIZE_BITS)
+#define INPAGE(addr) ((addr)&PAGE_MASK)
+#define WORDINPAGE(addr) (INPAGE(addr)>>2)
+#define DEREF(cpu,addr) cpu->page_tables[PAGEOF(addr)]->memory[WORDINPAGE(addr)]
+
 #define PERM_READ    4
 #define PERM_WRITE   2
 #define PERM_EXECUTE 1
+
+#define FLAG_N 0x80000000
+#define FLAG_Z 0x40000000
+#define FLAG_C 0x20000000
+#define FLAG_V 0x10000000
+#define FLAG_I 0x08000000
+#define FLAG_F 0x04000000
+
+#define MODE_USR 0
+#define MODE_FIQ 1
+#define MODE_IRQ 2
+#define MODE_SUP 3
 
 #define FLAG_INIT 1
 
@@ -65,6 +82,11 @@ typedef struct {
     uint32_t *physical_ram;
     uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];
+    //these are broken out for efficiency, when needed accessed r15 is updated from them
+    uint32_t mode;
+    uint32_t pc;
+    uint32_t cpsr;
+    //the flags are about the processor(like initialised), not part of it
     uint32_t flags;
 } armv2_t;
 
@@ -72,3 +94,4 @@ typedef struct {
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
+armv2status_t run_armv2(armv2_t *cpu);
