@@ -49,6 +49,28 @@
 #define FLAG_I 0x08000000
 #define FLAG_F 0x04000000
 
+#define FLAG_SET(cpu,flag) ((cpu)->regs.r[PC]&FLAG_##flag)
+#define FLAG_CLEAR(cpu,flag) (!FLAG_SET(cpu,flag))
+
+#define COND_EQ 0x0
+#define COND_NE 0x1
+#define COND_CS 0x2
+#define COND_CC 0x3
+#define COND_MI 0x4
+#define COND_PL 0x5
+#define COND_VS 0x6
+#define COND_VC 0x7
+#define COND_HI 0x8
+#define COND_LS 0x9
+#define COND_GE 0xa
+#define COND_LT 0xb
+#define COND_GT 0xc
+#define COND_LE 0xd
+#define COND_AL 0xe
+#define COND_NV 0xf
+
+#define CONDITION_BITS(x) ((x)>>28)
+
 #define MODE_USR 0
 #define MODE_FIQ 1
 #define MODE_IRQ 2
@@ -82,10 +104,8 @@ typedef struct {
     uint32_t *physical_ram;
     uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];
-    //these are broken out for efficiency, when needed accessed r15 is updated from them
-    uint32_t mode;
+    //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
-    uint32_t cpsr;
     //the flags are about the processor(like initialised), not part of it
     uint32_t flags;
 } armv2_t;

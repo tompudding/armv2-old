@@ -122,10 +122,86 @@ close_file:
 
 armv2status_t run_armv2(armv2_t *cpu) {
     uint32_t running = 1;
-    while(running) {
+    for(running=1;running;cpu->pc += 4) {
+        //check if PC is valid
         uint32_t instruction = DEREF(cpu,cpu->pc);
         LOG("Executing instruction %08x\n",instruction);
-        exit(0);
+        switch(CONDITION_BITS(instruction)) {
+        case COND_EQ: //Z set
+            if(FLAG_SET(cpu,Z)) {
+                break;
+            }
+            continue;
+        case COND_NE: //Z clear
+            if(FLAG_CLEAR(cpu,Z)) {
+                break;
+            }
+            continue;
+        case COND_CS: //C set
+            if(FLAG_SET(cpu,C)) {
+                break;
+            }
+            continue;
+        case COND_CC: //C clear
+            if(FLAG_CLEAR(cpu,C)) {
+                break;
+            }
+            continue;
+        case COND_MI: //N set
+            if(FLAG_SET(cpu,N)) {
+                break;
+            }
+            continue;
+        case COND_PL: //N clear
+            if(FLAG_CLEAR(cpu,N)) {
+                break;
+            }
+            continue;
+        case COND_VS: //V set
+            if(FLAG_SET(cpu,V)) {
+                break;
+            }
+            continue;
+        case COND_VC: //V clear
+            if(FLAG_CLEAR(cpu,V)) {
+                continue;
+            }
+            break;
+        case COND_HI: //C set and Z clear
+            if(FLAG_SET(cpu,C) && FLAG_CLEAR(cpu,Z)) {
+                break;
+            }
+            continue;
+        case COND_LS: //C clear or Z set
+            if(FLAG_CLEAR(cpu,C) || FLAG_SET(cpu,Z)) {
+                break;
+            }
+            continue;
+        case COND_GE: //N set and V set, or N clear and V clear
+            if((FLAG_SET(cpu,N) && FLAG_SET(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_CLEAR(cpu,V))) {
+                break;
+            }
+            continue;
+        case COND_LT: //N set and V clear or N clear and V set
+            if((FLAG_SET(cpu,N) && FLAG_CLEAR(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_SET(cpu,V))) {
+                break;
+            }
+            continue;
+        case COND_GT: //Z clear and either N set and V set, or N clear and V clear
+            if((FLAG_CLEAR(cpu,Z) && ((FLAG_SET(cpu,N) && FLAG_SET(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_CLEAR(cpu,V))))) {
+                break;
+            }
+            continue;
+        case COND_LE: //Z set or N set and V clear, or N clear and V set
+            if((FLAG_SET(cpu,Z) || (FLAG_SET(cpu,N) && FLAG_CLEAR(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_SET(cpu,V)))) {
+                break;
+            }
+            continue;
+        case COND_AL: //Always
+            break;
+        case COND_NV: //Never
+            continue;
+            }
     }
     return ARMV2STATUS_OK;
 }
