@@ -6,6 +6,7 @@
 #include "armv2.h"
 
 #define LOG(...) printf(__VA_ARGS__)
+//#define LOG(...)
 
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     uint32_t num_pages = 0;
@@ -120,12 +121,77 @@ close_file:
     return retval;
 }
 
+armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    if((instruction>>24&1)) {
+        cpu->regs.r[LR] = cpu->pc-4;
+    }
+    cpu->pc = cpu->pc + 8 + ((instruction&0xffffff)<<2);
+    
+    return EXCEPT_NONE;
+}
+armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    return EXCEPT_NONE;
+}
+
+
 armv2status_t run_armv2(armv2_t *cpu) {
     uint32_t running = 1;
-    for(running=1;running;cpu->pc += 4) {
+    for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
         //check if PC is valid
+        SETPC(cpu,cpu->pc + 8);
+        if(cpu->page_tables[PAGEOF(cpu->pc)] == NULL) {
+            //Trying to execute an unmapped page!
+            //some sort of exception
+            exit(0);
+        }
+
+        armv2exception_t exception = EXCEPT_NONE;
         uint32_t instruction = DEREF(cpu,cpu->pc);
-        LOG("Executing instruction %08x\n",instruction);
+        LOG("Executing instruction %08x %08x\n",cpu->pc,instruction);
         switch(CONDITION_BITS(instruction)) {
         case COND_EQ: //Z set
             if(FLAG_SET(cpu,Z)) {
@@ -178,22 +244,22 @@ armv2status_t run_armv2(armv2_t *cpu) {
             }
             continue;
         case COND_GE: //N set and V set, or N clear and V clear
-            if((FLAG_SET(cpu,N) && FLAG_SET(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_CLEAR(cpu,V))) {
+            if( (!!FLAG_SET(cpu,N)) == (!!FLAG_SET(cpu,V)) ) {
                 break;
             }
             continue;
         case COND_LT: //N set and V clear or N clear and V set
-            if((FLAG_SET(cpu,N) && FLAG_CLEAR(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_SET(cpu,V))) {
+            if( (!!FLAG_SET(cpu,N)) != (!!FLAG_SET(cpu,V)) ) {
                 break;
             }
             continue;
         case COND_GT: //Z clear and either N set and V set, or N clear and V clear
-            if((FLAG_CLEAR(cpu,Z) && ((FLAG_SET(cpu,N) && FLAG_SET(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_CLEAR(cpu,V))))) {
+            if((FLAG_CLEAR(cpu,Z) && (!!FLAG_SET(cpu,N)) == (!!FLAG_SET(cpu,V)) )) {
                 break;
             }
             continue;
         case COND_LE: //Z set or N set and V clear, or N clear and V set
-            if((FLAG_SET(cpu,Z) || (FLAG_SET(cpu,N) && FLAG_CLEAR(cpu,V)) || (FLAG_CLEAR(cpu,N) && FLAG_SET(cpu,V)))) {
+            if((FLAG_SET(cpu,Z) || (!!FLAG_SET(cpu,N)) != (!!FLAG_SET(cpu,V)) )) {
                 break;
             }
             continue;
@@ -201,7 +267,57 @@ armv2status_t run_armv2(armv2_t *cpu) {
             break;
         case COND_NV: //Never
             continue;
+        }
+        //We're executing the instruction
+        switch((instruction>>26)&03) {
+        case 0:
+            //Data processing, multiply or single data swap
+            if((instruction&0xf0) != 0x90) {
+                //data processing instruction...
+                exception = ALUInstruction(cpu,instruction);
             }
+            else if(instruction&0xf00) {
+                //multiply
+                exception = MultiplyInstruction(cpu,instruction);
+            }
+            else {
+                //swap
+                exception = SwapInstruction(cpu,instruction);
+            }
+            break;
+        case 1:
+            //LDR or STR, or undefined
+            exception = SingleDataTransferInstruction(cpu,instruction);
+            break;
+        case 2:
+            //LDM or STM or branch
+            if(instruction&0x02000000) {
+                exception = BranchInstruction(cpu,instruction);
+            }
+            else {
+                exception = MultiDataTransferInstruction(cpu,instruction);
+            }
+            break;
+        case 3:
+            //coproc functions or swi
+            if((instruction&0x0f000000) == 0x0f000000) {
+                exception = SoftwareInterruptInstruction(cpu,instruction);
+            }
+            else if((instruction&0x02000000) == 0) {
+                exception = CoprocessorDataTransferInstruction(cpu,instruction);
+            }
+            else if(instruction&0x10) {
+                exception = CoprocessorRegisterTransferInstruction(cpu,instruction);
+            }
+            else {
+                exception = CoprocessorDataOperationInstruction(cpu,instruction);
+            }
+            break;
+        }
+        //handle the exception if there was one
+        if(exception != EXCEPT_NONE) {
+            LOG("Instruction exception %d\n",exception);
+        }
     }
     return ARMV2STATUS_OK;
 }

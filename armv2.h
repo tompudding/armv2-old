@@ -26,10 +26,10 @@
 
 #define NUMREGS 27
 
-#define PAGE_SIZE_BITS 16
+#define PAGE_SIZE_BITS 12
 #define PAGE_SIZE (1<<PAGE_SIZE_BITS)
 #define PAGE_MASK (PAGE_SIZE-1)
-#define NUM_PAGE_TABLES (1<<(32 - PAGE_SIZE_BITS))
+#define NUM_PAGE_TABLES (1<<(26 - PAGE_SIZE_BITS))
 #define WORDS_PER_PAGE (1<<(PAGE_SIZE_BITS-2))
 #define MAX_MEMORY (1<<26)
 
@@ -37,6 +37,7 @@
 #define INPAGE(addr) ((addr)&PAGE_MASK)
 #define WORDINPAGE(addr) (INPAGE(addr)>>2)
 #define DEREF(cpu,addr) cpu->page_tables[PAGEOF(addr)]->memory[WORDINPAGE(addr)]
+#define SETPC(cpu,newpc) ((cpu)->regs.r[PC] = (((cpu)->regs.r[PC]&0xfc000003) | ((newpc)&0x003fffffc)))
 
 #define PERM_READ    4
 #define PERM_WRITE   2
@@ -79,6 +80,18 @@
 #define FLAG_INIT 1
 
 typedef enum {
+    EXCEPT_RST                   = 0,
+    EXCEPT_UNDEFINED_INSTRUCTION = 1,
+    EXCEPT_SOFTWARE_INTERRUPT    = 2,
+    EXCEPT_PREFETCH_ABORT        = 3,
+    EXCEPT_DATA_ABORT            = 4,
+    EXCEPT_ADDRESS               = 5,
+    EXCEPT_IRQ                   = 6,
+    EXCEPT_FIQ                   = 7,
+    EXCEPT_NONE                  = 8,
+} armv2exception_t;
+
+typedef enum {
     ARMV2STATUS_OK = 0,
     ARMV2STATUS_INVALID_CPUSTATE,
     ARMV2STATUS_MEMORY_ERROR,
@@ -115,3 +128,15 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu);
+
+//instruction handlers
+armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
+armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction);
+armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction);
+armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction);
+armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t instruction);
+armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction);
+armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction);
+armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction);
+armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
+armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
