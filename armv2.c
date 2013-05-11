@@ -61,7 +61,11 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     }
 
     cpu->flags = FLAG_INIT;
-    cpu->regs.r[PC] = MODE_SUP;
+    
+    cpu->regs.r[PC] = MODE_SUP; 
+    cpu->pins = 0;
+    cpu->pc = -4; //hack because it gets incremented on the first loop
+    
 
 cleanup:
     if(retval != ARMV2STATUS_OK) {
@@ -180,9 +184,36 @@ armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t i
 
 armv2status_t run_armv2(armv2_t *cpu) {
     uint32_t running = 1;
-    for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
+    //for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
+    while(running) {
+        cpu->pc = (cpu->pc+4)&0x3ffffff;
         //check if PC is valid
         SETPC(cpu,cpu->pc + 8);
+
+        //Before we do anything, we check to see if we need to do and FIQ or an IRQ
+        if(FLAG_CLEAR(cpu,F)) {
+            if(PIN_ON(cpu,F)) {
+                //crumbs, time to do an FIQ!
+                cpu->regs.r[R14_F] = cpu->regs.r[PC];
+                SETMODE(cpu,MODE_FIQ);
+                SETFLAG(cpu,F);
+                SETFLAG(cpu,I);
+                cpu->pc = 0x1c-4;
+                continue;
+            }
+        }
+        if(FLAG_CLEAR(cpu,I)) {
+            if(PIN_ON(cpu,I)) {
+                //crumbs, time to do an FIQ!
+                cpu->regs.r[R14_I] = cpu->regs.r[PC];
+                SETMODE(cpu,MODE_IRQ);
+                SETFLAG(cpu,I);
+                cpu->pc = 0x18-4;
+                continue;
+            }
+        }
+
+        
         if(cpu->page_tables[PAGEOF(cpu->pc)] == NULL) {
             //Trying to execute an unmapped page!
             //some sort of exception

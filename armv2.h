@@ -38,6 +38,8 @@
 #define WORDINPAGE(addr) (INPAGE(addr)>>2)
 #define DEREF(cpu,addr) cpu->page_tables[PAGEOF(addr)]->memory[WORDINPAGE(addr)]
 #define SETPC(cpu,newpc) ((cpu)->regs.r[PC] = (((cpu)->regs.r[PC]&0xfc000003) | ((newpc)&0x003fffffc)))
+#define SETMODE(cpu,newmode) ((cpu)->regs.r[PC] = (((cpu)->regs.r[PC]&0xfffffffc) | (newmode)))
+#define SETFLAG(cpu,flag) ((cpu)->regs.r[PC] |= FLAG_##flag)
 
 #define PERM_READ    4
 #define PERM_WRITE   2
@@ -50,8 +52,14 @@
 #define FLAG_I 0x08000000
 #define FLAG_F 0x04000000
 
+#define PIN_F  0x00000001
+#define PIN_I  0x00000002
+
 #define FLAG_SET(cpu,flag) ((cpu)->regs.r[PC]&FLAG_##flag)
 #define FLAG_CLEAR(cpu,flag) (!FLAG_SET(cpu,flag))
+#define PIN_ON(cpu,pin) ((cpu)->pins&PIN_##pin)
+#define PING_OFF(cpu,pin) (!PIN_ON(cpu,pin))
+
 
 #define COND_EQ 0x0
 #define COND_NE 0x1
@@ -121,6 +129,8 @@ typedef struct {
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it
     uint32_t flags;
+    //simulating hardware pins:
+    uint32_t pins;
 } armv2_t;
 
 
