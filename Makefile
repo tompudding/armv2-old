@@ -5,8 +5,8 @@ COPY=arm-none-eabi-objcopy
 
 all: armv2 boot.rom
 
-armv2: armv2.c armv2.h
-	${CC} ${CFLAGS} -g -o $@ $<
+armv2: armv2.c instructions.c init.c armv2.h
+	${CC} ${CFLAGS} -g -o $@ armv2.c instructions.c init.c
 
 boot.rom: boot.S
 	${AS} -march=armv2 -o boot.o $<
