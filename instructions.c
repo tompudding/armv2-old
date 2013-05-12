@@ -125,65 +125,89 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
             break;
         }
     }
+    uint32_t op2;
+    uint32_t op1;
+    uint32_t carry = (cpu->regs.actual[PC]>>29)&1;
+    uint32_t rn_val = *cpu->regs.effective[rn];
     switch(opcode) {
-        uint32_t temp;
     case ALU_OPCODE_AND:
     case ALU_OPCODE_TST:
-        result = (*cpu->regs.effective[rn]) & source_val;
+        result = rn_val & source_val;
         break;
     case ALU_OPCODE_EOR:
     case ALU_OPCODE_TEQ:
-        result = (*cpu->regs.effective[rn]) ^ source_val;
+        result = rn_val ^ source_val;
         break;
     case ALU_OPCODE_SUB:
     case ALU_OPCODE_CMP:
-        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + (-source_val);
+        op2 = ~source_val;
+        op1 = rn_val;
+        result64 = ((uint64_t)op1) + op2 + 1;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        //If the sign bit changed we set the overflow flag
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        /*      ADDITION SIGN BITS */
+        /*    num1sign num2sign sumsign */
+        /*   --------------------------- */
+        /*        0 0 0 */
+        /* *OVER* 0 0 1 (adding two positives should be positive) */
+        /*        0 1 0 */
+        /*        0 1 1 */
+        /*        1 0 0 */
+        /*        1 0 1 */
+        /* *OVER* 1 1 0 (adding two negatives should be negative) */
+        /*        1 1 1 */
+
+        arith_v = (op1^op2^0x80000000)&(op1^result)&0x80000000;
         break;
     case ALU_OPCODE_RSB:
-        result64 = ((uint64_t)source_val) + (-(*cpu->regs.effective[rn]));
+        op1 = source_val;
+        op2 = ~rn_val;
+        result64 = ((uint64_t)op1) + op2 + 1;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        arith_v = (op1^op2^0x80000000)&(op1^result)&0x80000000;
         break;
     case ALU_OPCODE_ADD:
     case ALU_OPCODE_CMN:
-        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + source_val;
+        op2 = source_val;
+        op1 = rn_val;
+        result64 = ((uint64_t)op1) + op2;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        arith_v = (op1^op2^0x80000000)&(op1^result)&0x80000000;
         break;
     case ALU_OPCODE_ADC:
-        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + source_val + ((cpu->regs.actual[PC]>>29)&1);
+        op1 = rn_val;
+        op2 = source_val;
+        result64 = ((uint64_t)op1) + op2 + carry;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        arith_v = (op1^op2^0x80000000)&(op1^result)&0x80000000;
         break;
     case ALU_OPCODE_SBC:
-        temp = source_val + ((cpu->regs.actual[PC]>>29)&1);
-        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + (-temp);
+        op1 = rn_val;
+        op2 = ~source_val; 
+        result64 = ((uint64_t)op1) + op2 + carry;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        arith_v = (op1^op2^0x80000000)&(op1^result)&0x80000000;
         break;
     case ALU_OPCODE_RSC:
-        temp = (*cpu->regs.effective[rn]) + ((cpu->regs.actual[PC]>>29)&1);
-        result64 = ((uint64_t)source_val) + (-temp);
+        op1 = ~rn_val;
+        op2 = source_val;
+        result64 = ((uint64_t)op2) + op1 + carry;
         result = result64&0xffffffff;
         shift_c = result64>>32;
-        arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
+        arith_v = (result^rn_val)&0x80000000;
         break;
     case ALU_OPCODE_ORR:
-        result = (*cpu->regs.effective[rn]) | source_val;
+        result = rn_val | source_val;
         break;
     case ALU_OPCODE_MOV:
         result = source_val;
         break;
     case ALU_OPCODE_BIC:
-        result = (*cpu->regs.effective[rn]) & (~source_val);
+        result = rn_val & (~source_val);
         break;
     case ALU_OPCODE_MVN:
         result = ~source_val;

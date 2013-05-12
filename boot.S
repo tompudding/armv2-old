@@ -20,7 +20,7 @@ FIQ:
 dummy_handler:
         ADD R0,R0,#1
         CMP R0,#4
-        BHI loop_complete
+        BGE loop_complete
         B dummy_handler
 loop_complete:
         B loop_complete
