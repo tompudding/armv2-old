@@ -24,22 +24,24 @@
 #define R13_F 25
 #define R14_F 26
 
-#define NUMREGS 27
+#define NUMREGS              (27)
+#define NUM_EFFECTIVE_REGS   (16)
 
-#define PAGE_SIZE_BITS 12
-#define PAGE_SIZE (1<<PAGE_SIZE_BITS)
-#define PAGE_MASK (PAGE_SIZE-1)
-#define NUM_PAGE_TABLES (1<<(26 - PAGE_SIZE_BITS))
-#define WORDS_PER_PAGE (1<<(PAGE_SIZE_BITS-2))
-#define MAX_MEMORY (1<<26)
+#define PAGE_SIZE_BITS       (12)
+#define PAGE_SIZE            (1<<PAGE_SIZE_BITS)
+#define PAGE_MASK            (PAGE_SIZE-1)
+#define NUM_PAGE_TABLES      (1<<(26 - PAGE_SIZE_BITS))
+#define WORDS_PER_PAGE       (1<<(PAGE_SIZE_BITS-2))
+#define MAX_MEMORY           (1<<26)
 
-#define PAGEOF(addr) ((addr)>>PAGE_SIZE_BITS)
-#define INPAGE(addr) ((addr)&PAGE_MASK)
-#define WORDINPAGE(addr) (INPAGE(addr)>>2)
-#define DEREF(cpu,addr) cpu->page_tables[PAGEOF(addr)]->memory[WORDINPAGE(addr)]
-#define SETPC(cpu,newpc) ((cpu)->regs.r[PC] = (((cpu)->regs.r[PC]&0xfc000003) | ((newpc)&0x003fffffc)))
-#define SETMODE(cpu,newmode) ((cpu)->regs.r[PC] = (((cpu)->regs.r[PC]&0xfffffffc) | (newmode)))
-#define SETFLAG(cpu,flag) ((cpu)->regs.r[PC] |= FLAG_##flag)
+#define PAGEOF(addr)         ((addr)>>PAGE_SIZE_BITS)
+#define INPAGE(addr)         ((addr)&PAGE_MASK)
+#define WORDINPAGE(addr)     (INPAGE(addr)>>2)
+#define DEREF(cpu,addr)      (cpu->page_tables[PAGEOF(addr)]->memory[WORDINPAGE(addr)])
+#define SETPC(cpu,newpc)     ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0xfc000003) | ((newpc)&0x003fffffc)))
+#define SETMODE(cpu,newmode) ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0xfffffffc) | (newmode)))
+#define GETMODE(cpu)         ((cpu)->regs.actual[PC]&0x3)
+#define SETFLAG(cpu,flag)    ((cpu)->regs.actual[PC] |= FLAG_##flag)
 
 #define PERM_READ    4
 #define PERM_WRITE   2
@@ -52,10 +54,13 @@
 #define FLAG_I 0x08000000
 #define FLAG_F 0x04000000
 
+#define PC_PROTECTED_BITS   ((FLAG_I|FLAG_F|3))
+#define PC_UNPROTECTED_BITS (~PC_PROTECTED_BITS)
+
 #define PIN_F  0x00000001
 #define PIN_I  0x00000002
 
-#define FLAG_SET(cpu,flag) ((cpu)->regs.r[PC]&FLAG_##flag)
+#define FLAG_SET(cpu,flag) ((cpu)->regs.actual[PC]&FLAG_##flag)
 #define FLAG_CLEAR(cpu,flag) (!FLAG_SET(cpu,flag))
 #define PIN_ON(cpu,pin) ((cpu)->pins&PIN_##pin)
 #define PING_OFF(cpu,pin) (!PIN_ON(cpu,pin))
@@ -108,7 +113,8 @@ typedef enum {
 } armv2status_t;
 
 typedef struct {
-    uint32_t r[NUMREGS];
+    uint32_t actual[NUMREGS];
+    uint32_t *effective[NUM_EFFECTIVE_REGS];
 } regs_t;
 
 typedef void (*access_callback_t)(uint32_t);
@@ -121,7 +127,8 @@ typedef struct {
 } page_info_t;
 
 typedef struct {
-    regs_t regs;
+    regs_t regs; //storage for all the registers
+    
     uint32_t *physical_ram;
     uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];

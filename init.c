@@ -47,7 +47,7 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
             goto cleanup;
         }
         page_info->memory = cpu->physical_ram + i*WORDS_PER_PAGE;
-        LOG("Page %u memory %p\n",i,(void*)page_info->memory);
+        //LOG("Page %u memory %p\n",i,(void*)page_info->memory);
         page_info->flags |= (PERM_READ|PERM_EXECUTE|PERM_WRITE);
         if(i == 0) {
             //the first page is never writable, we'll put the boot rom there.
@@ -58,10 +58,13 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
 
     cpu->flags = FLAG_INIT;
     
-    cpu->regs.r[PC] = MODE_SUP; 
+    cpu->regs.actual[PC] = MODE_SUP; 
     cpu->pins = 0;
     cpu->pc = -4; //hack because it gets incremented on the first loop
-    
+
+    for(uint32_t i=0;i<NUM_EFFECTIVE_REGS;i++) {
+        cpu->regs.effective[i] = &cpu->regs.actual[i];
+    }
 
 cleanup:
     if(retval != ARMV2STATUS_OK) {

@@ -18,10 +18,13 @@ armv2status_t run_armv2(armv2_t *cpu) {
         if(FLAG_CLEAR(cpu,F)) {
             if(PIN_ON(cpu,F)) {
                 //crumbs, time to do an FIQ!
-                cpu->regs.r[R14_F] = cpu->regs.r[PC];
+                cpu->regs.actual[R14_F] = cpu->regs.actual[PC];
                 SETMODE(cpu,MODE_FIQ);
                 SETFLAG(cpu,F);
                 SETFLAG(cpu,I);
+                for(uint32_t i=8;i<15;i++) {
+                    cpu->regs.effective[i] = &cpu->regs.actual[R8_F+(i-8)];
+                }
                 cpu->pc = 0x1c-4;
                 continue;
             }
@@ -29,14 +32,16 @@ armv2status_t run_armv2(armv2_t *cpu) {
         if(FLAG_CLEAR(cpu,I)) {
             if(PIN_ON(cpu,I)) {
                 //crumbs, time to do an FIQ!
-                cpu->regs.r[R14_I] = cpu->regs.r[PC];
+                cpu->regs.actual[R14_I] = cpu->regs.actual[PC];
                 SETMODE(cpu,MODE_IRQ);
                 SETFLAG(cpu,I);
                 cpu->pc = 0x18-4;
+                for(uint32_t i=13;i<15;i++) {
+                    cpu->regs.effective[i] = &cpu->regs.actual[R13_I+(i-13)];
+                }
                 continue;
             }
         }
-
         
         if(cpu->page_tables[PAGEOF(cpu->pc)] == NULL) {
             //Trying to execute an unmapped page!
