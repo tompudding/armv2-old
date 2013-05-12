@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #define ALU_TYPE_IMM 0x02000000
+#define MUL_TYPE_MLA 0x00200000
 #define ALU_SETS_FLAGS 0x00100000
 #define ALU_OPCODE_AND 0x0
 #define ALU_OPCODE_EOR 0x1
@@ -41,10 +42,10 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
     else {
         uint32_t shift_type = (instruction>>5)&0x3;
         uint32_t shift_amount;
-        source_val = *cpu->regs.effective[instruction&0xf];
+        source_val = GETREG(cpu,instruction&0xf);
         if(instruction&0x10) {
             //shift amount comes from a register
-            shift_amount = (*cpu->regs.effective[(instruction>>8)&0xf])&0xff;
+            shift_amount = (GETREG(cpu,(instruction>>8)&0xf))&0xff;
         }
         else {
             //shift amount is in the instruction
@@ -128,7 +129,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
     uint32_t op2;
     uint32_t op1;
     uint32_t carry = (cpu->regs.actual[PC]>>29)&1;
-    uint32_t rn_val = *cpu->regs.effective[rn];
+    uint32_t rn_val = GETREG(cpu,rn);
     switch(opcode) {
     case ALU_OPCODE_AND:
     case ALU_OPCODE_TST:
@@ -237,16 +238,60 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
             cpu->regs.actual[PC] = (cpu->regs.actual[PC]&0x0fffffff)|n|z|c|v;
         }
         if((opcode&0xc) != 0x8) {
-            *cpu->regs.effective[rd] = result;
+            GETREG(cpu,rd) = result;
         }
     }
     
-    LOG("%s r%d %08x %08x\n",__func__,rd,*cpu->regs.effective[rd],cpu->regs.actual[PC]);
+    LOG("%s r%d %08x %08x\n",__func__,rd,GETREG(cpu,rd),cpu->regs.actual[PC]);
     return EXCEPT_NONE;
 }
+
 armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction)
 {
+    //mul rd,rm,rs means rd = (rm*rs)&0xffffffff
+    //mla rd,rm,rs,rn means rd = (rm*rs + rn)&0xffffffff
+    uint32_t rm = instruction&0xf;
+    uint32_t rn = (instruction>>12)&0xf;
+    uint32_t rs = (instruction>>8)&0xf;
+    uint32_t rd = (instruction>>16)&0xf;
+    uint32_t result;
     LOG("%s\n",__func__);
+
+    if(instruction&MUL_TYPE_MLA) {
+        //using rn so get its value
+        rn = GETREG(cpu,rn);
+    }
+    else {
+        rn = 0;
+    }
+    if(rs == PC) {
+        //GETPC doesn't include the flags
+        rs = GETPC(cpu);
+    }
+    else {
+        rs = GETREG(cpu,rs);
+    }
+    if(rm == PC) {
+        //Apparently it's PC +12 instead of plus 8, whatever
+        rm = (GETPC(cpu)+4)&0x03fffffc;
+    }
+    else {
+        rm = GETREG(cpu,rm);
+    }
+    if(rd == 15) {
+        result = 0;
+    }
+    else {
+        result = (rm*rs + rn)&0xffffffff;
+        GETREG(cpu,rd) = (rm*rs + rn)&0xffffffff;
+    }
+    if(instruction&ALU_SETS_FLAGS) {
+        //apparently we set C to a meaningless value! I'll just leave it
+        uint32_t n = (result&FLAG_N);
+        uint32_t z = result == 0 ? FLAG_Z : 0;
+        cpu->regs.actual[PC] = (cpu->regs.actual[PC]&0x3fffffff)|n|z;
+    }
+    
     return EXCEPT_NONE;
 }
 armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
@@ -263,7 +308,7 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
 {
     LOG("%s\n",__func__);
     if((instruction>>24&1)) {
-        *cpu->regs.effective[LR] = cpu->pc-4;
+        GETREG(cpu,LR) = cpu->pc-4;
     }
     cpu->pc = cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4; 
     //+8 due to the weird prefetch thing, -4 for the hack as we're going to add 4 in the next loop
