@@ -126,6 +126,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
         }
     }
     switch(opcode) {
+        uint32_t temp;
     case ALU_OPCODE_AND:
     case ALU_OPCODE_TST:
         result = (*cpu->regs.effective[rn]) & source_val;
@@ -136,41 +137,43 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
         break;
     case ALU_OPCODE_SUB:
     case ALU_OPCODE_CMP:
-        result64 = (*cpu->regs.effective[rn]) - source_val;
+        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + (-source_val);
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         //If the sign bit changed we set the overflow flag
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_RSB:
-        result64 = source_val - (*cpu->regs.effective[rn]);
+        result64 = ((uint64_t)source_val) + (-(*cpu->regs.effective[rn]));
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_ADD:
     case ALU_OPCODE_CMN:
-        result64 = (*cpu->regs.effective[rn]) + source_val;
+        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + source_val;
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_ADC:
-        result64 = (*cpu->regs.effective[rn]) + source_val + ((cpu->regs.actual[PC]>>29)&1);
+        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + source_val + ((cpu->regs.actual[PC]>>29)&1);
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_SBC:
-        result64 = (*cpu->regs.effective[rn]) - (source_val + ((cpu->regs.actual[PC]>>29)&1));
+        temp = source_val + ((cpu->regs.actual[PC]>>29)&1);
+        result64 = ((uint64_t)(*cpu->regs.effective[rn])) + (-temp);
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_RSC:
-        result64 = source_val - ((*cpu->regs.effective[rn]) + ((cpu->regs.actual[PC]>>29)&1));
+        temp = (*cpu->regs.effective[rn]) + ((cpu->regs.actual[PC]>>29)&1);
+        result64 = ((uint64_t)source_val) + (-temp);
         result = result64&0xffffffff;
-        shift_c = result64>>1;
+        shift_c = result64>>32;
         arith_v = (result^(*cpu->regs.effective[rn]))&0x80000000;
         break;
     case ALU_OPCODE_ORR:
@@ -209,10 +212,12 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
             uint32_t v = arith_v ? FLAG_V : 0;
             cpu->regs.actual[PC] = (cpu->regs.actual[PC]&0x0fffffff)|n|z|c|v;
         }
-        *cpu->regs.effective[rd] = result;
+        if((opcode&0xc) != 0x8) {
+            *cpu->regs.effective[rd] = result;
+        }
     }
     
-    LOG("%s r%d %08x\n",__func__,rd,*cpu->regs.effective[rd]);
+    LOG("%s r%d %08x %08x\n",__func__,rd,*cpu->regs.effective[rd],cpu->regs.actual[PC]);
     return EXCEPT_NONE;
 }
 armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction)
