@@ -148,6 +148,8 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu);
 
+
+
 //instruction handlers
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
 armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction);

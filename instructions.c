@@ -26,6 +26,113 @@
 #define ALU_SHIFT_ASR  0x2
 #define ALU_SHIFT_ROR  0x3
 
+static uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t *carry);
+
+uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t *carry) {
+    uint32_t rm = bits&0xf;
+    uint32_t shift_type = (bits>>5)&0x3;
+    uint32_t shift_amount;
+    uint32_t shift_c = 0;
+    uint32_t op2;
+    if(type_flag) {
+            //shift amount comes from a register
+        shift_amount = (GETREG(cpu,(bits>>8)&0xf))&0xff;
+        if(((bits>>8)&0xf) == PC) {
+            shift_amount = (shift_amount + 8)&0xfc; //The mode bits are not used in rs
+        }
+    }
+    else {
+        //shift amount is in the instruction
+        shift_amount = (bits>>7)&0x1f;
+    }
+    op2 = GETREG(cpu,rm);
+    if(rm == PC) {
+        op2 += 8;
+        if(type_flag) {
+            op2 += 4;
+        }
+    }
+        
+    switch(shift_type) {
+    case ALU_SHIFT_LSL:
+        if(shift_amount < 32) {
+            shift_c = (op2>>(32-shift_amount))&1;
+            op2 <<= shift_amount;
+        }
+        else if(shift_amount == 32) {
+            shift_c = op2&1;
+            op2 = 0;
+        }
+        else {
+            shift_c = op2 = 0;
+        }
+            
+        break;
+    case ALU_SHIFT_LSR:
+        if(shift_amount == 0) {
+            if(type_flag == 0) {
+                //this means LSR 32
+                shift_c = op2&0x80000000;
+                op2 = 0;
+            }
+        }
+        else if(shift_amount < 32) {
+            shift_c = (op2>>(shift_amount-1))&1;
+            op2 >>= shift_amount;
+        }
+        else if(shift_amount == 32) {
+            shift_c = op2&0x80000000;
+            op2 = 0;
+        }
+        else {
+            shift_c = op2 = 0;
+        }
+            
+        break;
+    case ALU_SHIFT_ASR:
+        if(shift_amount == 0) {
+            if(type_flag == 0) {
+                //this means asr 32
+                shift_c = (op2>>31)&1;
+                op2 = shift_c*0xffffffff;
+            }
+        }
+        else if(shift_amount < 32){
+            shift_c = (op2>>(shift_amount-1))&1;
+            op2 = (uint32_t)(((int32_t)op2)>>shift_amount);
+        }
+        else {
+            shift_c = (shift_amount>>31)&1;
+            op2 = shift_c*0xffffffff;
+        }
+        break;
+    case ALU_SHIFT_ROR:
+        if(shift_amount > 32) {
+            //This is not clear to me from the spec. Should this do the same as 32 or as 0? Go with zero for now
+            shift_amount &= 0x1f;
+        }
+        if(shift_amount == 0) {
+            if(type_flag == 0) {
+                //this means something weird. RRX
+                shift_c = op2&1;
+                op2 = (op2>>1) | (((cpu->regs.actual[PC]>>29)&1)<<31);
+            }
+        }
+        else if (shift_amount < 32){
+            shift_c = (op2>>(shift_amount-1))&1;
+            op2 = (op2>>shift_amount) | (op2<<(32-shift_amount));
+        }
+        else if (shift_amount == 32) {
+            shift_c = op2&0x80000000;
+        }
+        break;
+    }
+    if(carry) {
+        *carry = shift_c;
+    }
+    return op2;
+}
+
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t opcode   = (instruction>>21)&0xf;
@@ -40,91 +147,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
         source_val = (instruction&0xff) << ((instruction>>7)&0x1e);
     }
     else {
-        uint32_t shift_type = (instruction>>5)&0x3;
-        uint32_t shift_amount;
-        source_val = GETREG(cpu,instruction&0xf);
-        if(instruction&0x10) {
-            //shift amount comes from a register
-            shift_amount = (GETREG(cpu,(instruction>>8)&0xf))&0xff;
-        }
-        else {
-            //shift amount is in the instruction
-            shift_amount = (instruction>>7)&0x1f;
-        }
-        switch(shift_type) {
-        case ALU_SHIFT_LSL:
-            if(shift_amount < 32) {
-                shift_c = (source_val>>(32-shift_amount))&1;
-                source_val <<= shift_amount;
-            }
-            else if(shift_amount == 32) {
-                shift_c = source_val&1;
-                source_val = 0;
-            }
-            else {
-                shift_c = source_val = 0;
-            }
-            
-            break;
-        case ALU_SHIFT_LSR:
-            if(shift_amount == 0) {
-                if((instruction&0x10) == 0) {
-                    //this means LSR 32
-                    shift_c = source_val&0x80000000;
-                    source_val = 0;
-                }
-            }
-            else if(shift_amount < 32) {
-                shift_c = (source_val>>(shift_amount-1))&1;
-                source_val >>= shift_amount;
-            }
-            else if(shift_amount == 32) {
-                shift_c = source_val&0x80000000;
-                source_val = 0;
-            }
-            else {
-                shift_c = source_val = 0;
-            }
-            
-            break;
-        case ALU_SHIFT_ASR:
-            if(shift_amount == 0) {
-                if((instruction&0x10) == 0) {
-                    //this means asr 32
-                    shift_c = (source_val>>31)&1;
-                    source_val = shift_c*0xffffffff;
-                }
-            }
-            else if(shift_amount < 32){
-                shift_c = (source_val>>(shift_amount-1))&1;
-                source_val = (uint32_t)(((int32_t)source_val)>>shift_amount);
-            }
-            else {
-                shift_c = (shift_amount>>31)&1;
-                source_val = shift_c*0xffffffff;
-            }
-            break;
-        case ALU_SHIFT_ROR:
-            if(shift_amount > 32) {
-                //This is not clear to me from the spec. Should this do the same as 32 or as 0? Go with zero for now
-                shift_amount &= 0x1f;
-            }
-            if(shift_amount == 0) {
-                if((instruction&0x10) == 0) {
-                    //this means something weird. RRX
-                    shift_c = source_val&1;
-                    source_val = (source_val>>1) | (((cpu->regs.actual[PC]>>29)&1)<<31);
-                }
-            }
-            else if (shift_amount < 32){
-                shift_c = (source_val>>(shift_amount-1))&1;
-                source_val = (source_val>>shift_amount) | (source_val<<(32-shift_amount));
-            }
-            else if (shift_amount == 32) {
-                shift_c = source_val&0x80000000;
-            }
-            break;
-        }
+        source_val = OperandShift(cpu,instruction&0xfff,instruction&0x10,&shift_c);
     }
     uint32_t op2;
     uint32_t op1;
@@ -299,9 +322,127 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }
+
+#define SDT_PREINDEX   0x01000000
+#define SDT_OFFSET_ADD 0x00800000
+#define SDT_LOAD_BYTE  0x00400000
+#define SDT_WRITE_BACK 0x00200000
+#define SDT_LDR        0x00100000
+
 armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
+    //LDR/STR{B}{T} rd,address
+    //address is one of:
+    //[rn](!)
+    //[rn,#imm](!)
+    //[rn,Rm](!)
+    //[rn,rm <shift> count](!)
+    //[rn],#imm
+    //[rn],Rm
+    //[rn],rm <shift> count
+    //First get the value of operand 2
+    uint32_t op2;
+    uint32_t rd = (instruction>>12)&0xf;
+    uint32_t rn = (instruction>>16)&0xf;
+    uint32_t rn_val;
+    page_info_t *page;
+
+    if(instruction&ALU_TYPE_IMM) {
+        op2 = instruction&0xfff;
+    }
+    else {
+        op2 = OperandShift(cpu,instruction&0xfff,0,NULL);
+    }
+    if(rn == PC) {
+        rn_val = GETPC(cpu) + 8;
+    }
+    else {
+        rn_val = GETREG(cpu,rn);
+    }
+    
+    if(instruction&SDT_PREINDEX) {
+        //we do the addition before the lookup
+        if(instruction&SDT_OFFSET_ADD) {
+            rn_val += op2;
+        }
+        else {
+            rn_val -= op2;
+        }
+    }
+                
+    //Do the lookup
+    if(rn_val&0xfc000000) {
+        //The address bus is 26 bits so this is a address exception
+        return EXCEPT_ADDRESS;
+    }
+    page = cpu->page_tables[PAGEOF(rn_val)];
+    if(NULL == page) {
+        //This is a data abort. Could also check for permission here
+        return EXCEPT_DATA_ABORT;
+    }
+    //do the load/store
+    if(instruction&SDT_LDR) {
+        //LDR
+        uint32_t value;
+        if(instruction&SDT_LOAD_BYTE) {
+            value = ((uint8_t*)page->memory)[INPAGE(rn_val)];
+        }
+        else {
+            //must be aligned
+            if(rn_val&0x3) {
+                return EXCEPT_DATA_ABORT;
+            }
+            value = page->memory[INPAGE(rn_val)>>2];
+        }
+        if(rd == PC) {
+            //don't set any of the flags
+            SETPC(cpu,value-4); //the -4 is a hack because we increment on the next loop
+        }
+        else {
+            GETREG(cpu,rd) = value;
+        }
+    }
+    else {
+        //STR
+        uint32_t value;
+        if(rd == PC) {
+            value = cpu->regs.actual[PC]+12;
+        }
+        else {
+            value = GETREG(cpu,rd);
+        }
+        
+        if(instruction&SDT_LOAD_BYTE) {
+            
+            ((uint8_t*)page->memory)[INPAGE(rn_val)] = value&0xff;
+        }
+        else {
+            //must be aligned
+            if(rn_val&0x3) {
+                return EXCEPT_DATA_ABORT;
+            }
+            page->memory[INPAGE(rn_val)>>2] = value;
+        }
+    }
+    //Now for any post indexing
+    if((instruction&SDT_PREINDEX) == 0) {
+        if(instruction&SDT_OFFSET_ADD) {
+            rn_val += op2;
+        }
+        else {
+            rn_val -= op2;
+        }
+    }
+    if((instruction&SDT_PREINDEX) == 0  || instruction&SDT_WRITE_BACK) {
+        if(rn == PC) {
+            SETPC(cpu,rn_val-4);
+        }
+        else {
+            GETREG(cpu,rn) = rn_val;
+        }
+    }
+    
     return EXCEPT_NONE;
 }
 armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t instruction)
