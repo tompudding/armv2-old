@@ -355,7 +355,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         op2 = OperandShift(cpu,instruction&0xfff,0,NULL);
     }
     if(rn == PC) {
-        rn_val = GETPC(cpu) + 8;
+        rn_val = GETPC(cpu);
     }
     else {
         rn_val = GETREG(cpu,rn);
@@ -407,7 +407,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         //STR
         uint32_t value;
         if(rd == PC) {
-            value = cpu->regs.actual[PC]+12;
+            value = ((GETPC(cpu)+4)&0x03fffffc) | GETMODEPSR(cpu);
         }
         else {
             value = GETREG(cpu,rd);
@@ -456,10 +456,120 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
 
     return EXCEPT_NONE;
 }
+
+#define MDT_LDM        SDT_LDR
+#define MDT_WRITE_BACK SDT_WRITE_BACK
+#define MDT_HAT        SDT_LOAD_BYTE
+#define MDT_OFFSET_ADD SDT_OFFSET_ADD
+#define MDT_PREINDEX   SDT_PREINDEX
+
 armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
-    return EXCEPT_NONE;
+    uint32_t rn         = (instruction>>16)&0xf;
+    uint32_t ldm        = instruction&MDT_LDM;
+    uint32_t write_back = instruction&MDT_WRITE_BACK;
+    uint32_t setflags   = instruction&MDT_HAT;
+    uint32_t offset     = instruction&MDT_OFFSET_ADD;
+    uint32_t preindex   = instruction&MDT_PREINDEX;
+    uint32_t user_bank  = GETMODE(cpu) ? setflags : MDT_HAT;
+    uint32_t address;
+    uint32_t num_registers = __builtin_popcount(instruction&0xffff);
+    int rs;
+    armv2exception_t retval = EXCEPT_NONE;
+    uint32_t write_back_old;
+    uint32_t first_loop = 1;
+    if(rn == PC) {
+        //psr bits are used, so that's an exception if the flags aren't set, weird
+        address = ((GETPC(cpu) + 8)&0x03fffffc) | GETPSR(cpu);
+        write_back = 0;
+    }
+    else {
+        address = GETREG(cpu,rn);
+    }
+
+    //the pre/post addressing and offset direction seem a bit weird to me, but here's how I think it affects things
+    if(offset == 0) {
+        address -= (num_registers<<2);
+    }
+    if(!!preindex == !!offset) {
+        address += 4;
+    }
+    //Do the lookup
+    if(address&0xfc000000) {
+        //The address bus is 26 bits so this is a address exception
+        //note that only the base address is check for address exception. A write of 2 registers to
+        //0x03fffffc will cause the second to be written to (0x04000000&0x03ffffff) == 0. Hmmm
+        retval = EXCEPT_ADDRESS;
+        //we don't return, we're supposed to complete the instruction
+    }
+
+    if(write_back) {
+        write_back_old = user_bank ? GETUSERREG(cpu,rn) : GETREG(cpu,rn);
+        if(user_bank) {
+            GETUSERREG(cpu,rn) = address + 4*num_registers;
+        }
+        else {
+            GETREG(cpu,rn) = address + 4*num_registers;
+        }
+    }
+
+    for(rs=0;rs<16;rs++,address+=4,first_loop=0) {
+        uint32_t value;
+        page_info_t *page;
+        if(((instruction>>rs)&1) == 0) {
+            continue;
+        }    
+    
+        page = cpu->page_tables[PAGEOF(address)];
+        if(NULL == page) {
+            //This is a data abort. Could also check for permission here
+            retval = EXCEPT_DATA_ABORT;
+            continue;
+        }
+        if(address&0x3) {
+            retval = EXCEPT_DATA_ABORT;
+            continue;
+        }
+        if(ldm) {
+            //we're loading from memory into registers
+            value = page->memory[INPAGE(address)>>2];
+            if(rs == PC) {
+                //this means we update the whole register, except for prohibited flags in user mode
+                if(GETMODE(cpu) == MODE_USR) {
+                    cpu->regs.actual[PC] = (cpu->regs.actual[PC]&PC_PROTECTED_BITS) | ((value-4)&PC_UNPROTECTED_BITS);
+                }
+                else {
+                    cpu->regs.actual[PC] = value;
+                }
+            }
+            else {
+                if(user_bank) {
+                    GETUSERREG(cpu,rs) = value;
+                }
+                else {
+                    GETREG(cpu,rs) = value;
+                }
+            }
+        }
+        else {
+            //str
+            if(rs == PC) {
+                value = ((GETPC(cpu)+4)&0x03fffffc) | GETMODEPSR(cpu);
+            }
+            else {
+                //slight quirk, if this is the first register we're storing and it's the writeback register, we must
+                //use it's old value
+                value = user_bank ? GETUSERREG(cpu,rs) : GETREG(cpu,rs);
+                if(write_back && first_loop && rs == rn) {
+                    value = write_back_old;
+                }
+            }
+            page->memory[INPAGE(address)>>2] = value;
+        }
+    }
+    
+    return retval;
 }
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {

@@ -41,8 +41,11 @@
 #define SETPC(cpu,newpc)     ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0xfc000003) | ((newpc)&0x03fffffc)))
 #define GETPC(cpu)           ((cpu)->regs.actual[PC]&0x03fffffc)
 #define GETREG(cpu,rn)       (*(cpu)->regs.effective[(rn)])
+#define GETUSERREG(cpu,rn)   ((cpu)->regs.actual[(rn)])
 #define SETMODE(cpu,newmode) ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0xfffffffc) | (newmode)))
 #define GETMODE(cpu)         ((cpu)->regs.actual[PC]&0x3)
+#define GETPSR(cpu)          ((cpu)->regs.actual[PC]&0xfc000000)
+#define GETMODEPSR(cpu)      ((cpu)->regs.actual[PC]&0xfc000003)
 #define SETFLAG(cpu,flag)    ((cpu)->regs.actual[PC] |= FLAG_##flag)
 
 #define PERM_READ    4
