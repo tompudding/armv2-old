@@ -317,11 +317,6 @@ armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t i
     
     return EXCEPT_NONE;
 }
-armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
-{
-    LOG("%s\n",__func__);
-    return EXCEPT_NONE;
-}
 
 #define SDT_PREINDEX   0x01000000
 #define SDT_OFFSET_ADD 0x00800000
@@ -385,16 +380,16 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     if(instruction&SDT_LDR) {
         //LDR
         uint32_t value;
-        if(instruction&SDT_LOAD_BYTE) {
-            value = ((uint8_t*)page->memory)[INPAGE(rn_val)];
+        //must be aligned
+        if(rn_val&0x3 && !(instruction&SDT_LOAD_BYTE)) {
+            return EXCEPT_DATA_ABORT;
         }
-        else {
-            //must be aligned
-            if(rn_val&0x3) {
-                return EXCEPT_DATA_ABORT;
-            }
-            value = page->memory[INPAGE(rn_val)>>2];
+
+        value = page->memory[INPAGE(rn_val)>>2];
+        if(instruction&SDT_LOAD_BYTE) { 
+            value = (value>>((rn_val&3)<<3))&0xff;
         }
+
         if(rd == PC) {
             //don't set any of the flags
             SETPC(cpu,value-4); //the -4 is a hack because we increment on the next loop
@@ -407,15 +402,16 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         //STR
         uint32_t value;
         if(rd == PC) {
-            value = ((GETPC(cpu)+4)&0x03fffffc) | GETMODEPSR(cpu);
+            value = ((cpu->pc+4)&0x03fffffc) | GETMODEPSR(cpu);
         }
         else {
             value = GETREG(cpu,rd);
         }
         
         if(instruction&SDT_LOAD_BYTE) {
-            
-            ((uint8_t*)page->memory)[INPAGE(rn_val)] = value&0xff;
+            uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
+            uint32_t rest_mask = ~byte_mask;
+            page->memory[INPAGE(rn_val)>>2] = (page->memory[INPAGE(rn_val)]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
         }
         else {
             //must be aligned
@@ -481,7 +477,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     uint32_t first_loop = 1;
     if(rn == PC) {
         //psr bits are used, so that's an exception if the flags aren't set, weird
-        address = ((GETPC(cpu) + 8)&0x03fffffc) | GETPSR(cpu);
+        address = cpu->pc | GETMODEPSR(cpu);
         write_back = 0;
     }
     else {
@@ -554,8 +550,12 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         }
         else {
             //str
+            if(retval != EXCEPT_NONE) {
+                //stores are prevented after a data abort
+                continue;
+            }
             if(rs == PC) {
-                value = ((GETPC(cpu)+4)&0x03fffffc) | GETMODEPSR(cpu);
+                value = ((cpu->pc+4)&0x03fffffc) | GETMODEPSR(cpu);
             }
             else {
                 //slight quirk, if this is the first register we're storing and it's the writeback register, we must
@@ -571,6 +571,75 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     
     return retval;
 }
+
+
+armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
+{
+    LOG("%s\n",__func__);
+    uint32_t rm   = instruction&0xf;
+    uint32_t rd   = (instruction>>12)&0xf;
+    uint32_t rn   = (instruction>>16)&0xf;
+    uint32_t byte = instruction&SDT_LOAD_BYTE;
+    uint32_t value;    
+    page_info_t *page;
+
+    uint32_t address = rn == PC ? (cpu->pc | GETMODEPSR(cpu)) : GETREG(cpu,rn);
+
+    if(address&0xfc000000) {
+        //The address bus is 26 bits so this is a address exception
+        return EXCEPT_ADDRESS;
+    }
+    page = cpu->page_tables[PAGEOF(address)];
+    if(NULL == page) {
+        //This is a data abort. Could also check for permission here
+        return EXCEPT_DATA_ABORT;
+    }
+
+    if(address&0x3 && !byte) {
+        return EXCEPT_DATA_ABORT;
+    }
+
+    //First load
+    value = page->memory[INPAGE(address)>>2];
+    if(byte) { 
+        value = (value>>((address&3)<<3))&0xff;
+    }
+
+    if(rd == PC) {
+        //don't set any of the flags
+        SETPC(cpu,value-4); //the -4 is a hack because we increment on the next loop
+    }
+    else {
+        GETREG(cpu,rd) = value;
+    }
+
+    //Now store
+    if(rm == PC) {
+        value = ((cpu->pc+4)&0x03fffffc) | GETMODEPSR(cpu);
+    }
+    else {
+        value = GETREG(cpu,rm);
+    }
+        
+    if(byte) {
+        uint32_t byte_mask = 0xff<<((address&3)<<3);
+        uint32_t rest_mask = ~byte_mask;
+        page->memory[INPAGE(address)>>2] = (page->memory[INPAGE(address)]&rest_mask) | ((value&0xff)<<((address&3)<<3));
+    }
+    else {
+        //must be aligned
+        if(address&0x3) {
+            return EXCEPT_DATA_ABORT;
+        }
+        page->memory[INPAGE(address)>>2] = value;
+    }
+
+    return EXCEPT_NONE;
+}
+
+
+
+
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
