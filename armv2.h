@@ -145,7 +145,7 @@ typedef struct {
     uint32_t pins;
 } armv2_t;
 
-
+typedef armv2exception_t (*instruction_handler_t)(armv2_t *cpu,uint32_t instruction);
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);

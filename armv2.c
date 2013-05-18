@@ -128,52 +128,54 @@ armv2status_t run_armv2(armv2_t *cpu) {
         case COND_NV: //Never
             continue;
         }
+        instruction_handler_t handler = NULL;
         //We're executing the instruction
         switch((instruction>>26)&03) {
         case 0:
             //Data processing, multiply or single data swap
             if((instruction&0xf0) != 0x90) {
                 //data processing instruction...
-                exception = ALUInstruction(cpu,instruction);
+                handler = ALUInstruction;
             }
             else if(instruction&0xf00) {
                 //multiply
-                exception = MultiplyInstruction(cpu,instruction);
+                handler = MultiplyInstruction;
             }
             else {
                 //swap
-                exception = SwapInstruction(cpu,instruction);
+                handler = SwapInstruction;
             }
             break;
         case 1:
             //LDR or STR, or undefined
-            exception = SingleDataTransferInstruction(cpu,instruction);
+            handler = SingleDataTransferInstruction;
             break;
         case 2:
             //LDM or STM or branch
             if(instruction&0x02000000) {
-                exception = BranchInstruction(cpu,instruction);
+                handler = BranchInstruction;
             }
             else {
-                exception = MultiDataTransferInstruction(cpu,instruction);
+                handler = MultiDataTransferInstruction;
             }
             break;
         case 3:
             //coproc functions or swi
             if((instruction&0x0f000000) == 0x0f000000) {
-                exception = SoftwareInterruptInstruction(cpu,instruction);
+                handler = SoftwareInterruptInstruction;
             }
             else if((instruction&0x02000000) == 0) {
-                exception = CoprocessorDataTransferInstruction(cpu,instruction);
+                handler = CoprocessorDataTransferInstruction;
             }
             else if(instruction&0x10) {
-                exception = CoprocessorRegisterTransferInstruction(cpu,instruction);
+                handler = CoprocessorRegisterTransferInstruction;
             }
             else {
-                exception = CoprocessorDataOperationInstruction(cpu,instruction);
+                handler = CoprocessorDataOperationInstruction;
             }
             break;
         }
+        exception = handler(cpu,instruction);
         //handle the exception if there was one
         if(exception != EXCEPT_NONE) {
             LOG("Instruction exception %d\n",exception);

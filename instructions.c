@@ -384,6 +384,9 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(rn_val&0x3 && !(instruction&SDT_LOAD_BYTE)) {
             return EXCEPT_DATA_ABORT;
         }
+        if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_READ)) {
+            return EXCEPT_DATA_ABORT;
+        }
 
         value = page->memory[INPAGE(rn_val)>>2];
         if(instruction&SDT_LOAD_BYTE) { 
@@ -401,12 +404,16 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     else {
         //STR
         uint32_t value;
+        if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_WRITE)) {
+            return EXCEPT_DATA_ABORT;
+        }
         if(rd == PC) {
             value = ((cpu->pc+4)&0x03fffffc) | GETMODEPSR(cpu);
         }
         else {
             value = GETREG(cpu,rd);
         }
+        
         
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
@@ -529,6 +536,10 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         }
         if(ldm) {
             //we're loading from memory into registers
+            if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_READ)) {
+                retval = EXCEPT_DATA_ABORT;
+                continue;
+            }
             value = page->memory[INPAGE(address)>>2];
             if(rs == PC) {
                 //this means we update the whole register, except for prohibited flags in user mode
@@ -550,6 +561,10 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         }
         else {
             //str
+            if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_WRITE)) {
+                retval = EXCEPT_DATA_ABORT;
+                continue;
+            }
             if(retval != EXCEPT_NONE) {
                 //stores are prevented after a data abort
                 continue;
@@ -599,6 +614,10 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
         return EXCEPT_DATA_ABORT;
     }
 
+    if(GETMODE(cpu) == MODE_USR && (page->flags&(PERM_READ|PERM_WRITE)) != (PERM_READ|PERM_WRITE)) {
+        return EXCEPT_DATA_ABORT;
+    }
+
     //First load
     value = page->memory[INPAGE(address)>>2];
     if(byte) { 
@@ -637,14 +656,12 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     return EXCEPT_NONE;
 }
 
-
-
-
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
-    return EXCEPT_NONE;
+    return EXCEPT_SOFTWARE_INTERRUPT;
 }
+//Not bothering with a coprocessor for now, so these are noops
 armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
