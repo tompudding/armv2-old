@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
 
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     uint32_t num_pages = 0;
@@ -111,6 +114,8 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
     FILE *f = NULL;
     ssize_t read_bytes = 0;
     armv2status_t retval = ARMV2STATUS_OK;
+    struct stat st = {0};
+    uint32_t page_num = 0;
     if(NULL == cpu) {
         return ARMV2STATUS_OK;
     }
@@ -120,18 +125,32 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
     if(NULL == cpu->page_tables[0] || NULL == cpu->page_tables[0]->memory) {
         return ARMV2STATUS_INVALID_CPUSTATE;
     }
+    if(0 != stat(filename,&st)) {
+        return ARMV2STATUS_IO_ERROR;
+    }
+    ssize_t size = st.st_size;
+    if(size < 24) {
+        //24 is the bare minimum for a rom, as the vectors go up to 0x20, and then you need at least one instruction
+        return ARMV2STATUS_IO_ERROR;
+    }
     f = fopen(filename,"rb");
     if(NULL == f) {
         LOG("Error opening %s\n",filename);
         return ARMV2STATUS_IO_ERROR;
     }
-    
-    read_bytes = fread(cpu->page_tables[0]->memory,1,PAGE_SIZE,f);
-    //24 is the bare minimum for a rom, as the vectors go up to 0x20, and then you need at least one instruction
-    if(read_bytes < 0x24) {
-        LOG("Error");
-        retval = ARMV2STATUS_IO_ERROR;
-        goto close_file;
+    while(size > 0) {
+        read_bytes = fread(cpu->page_tables[page_num++]->memory,1,PAGE_SIZE,f);
+        
+        if(read_bytes < PAGE_SIZE) {
+            //It's ok if it's all that's left
+            
+            if(read_bytes != size) {
+                LOG("Error %d %d %d\n",page_num,read_bytes,size);
+                retval = ARMV2STATUS_IO_ERROR;
+                goto close_file;
+            }
+        }
+        size -= PAGE_SIZE;
     }
 
 close_file:

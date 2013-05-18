@@ -1,27 +1,22 @@
 .syntax divided
 .code 32
 reset:
-        B dummy_handler
+        B start
 illegal_instruction:
-        B dummy_handler
+        SWI #1
 swi:
-        B dummy_handler
+        SWI #2
 prefetch_abort:
-        B dummy_handler
+        SWI #3
 data_abort:
-        B dummy_handler
+        SWI #4
 address_exception:
-        B dummy_handler
+        SWI #5
 IRQ:
-        B dummy_handler
+        SWI #6
 FIQ:
-        B dummy_handler
+        SWI #7
 
-dummy_handler:
-        ADD R0,R0,#1
-        LDR R1,=0x123456
-        CMP R0,R1
-        BGE loop_complete
-        B dummy_handler
-loop_complete:
-        B loop_complete
+start:
+        LDR R0,=0x80ac
+        MOV PC,R0

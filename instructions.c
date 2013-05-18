@@ -485,7 +485,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     uint32_t num_registers = __builtin_popcount(instruction&0xffff);
     int rs;
     armv2exception_t retval = EXCEPT_NONE;
-    uint32_t write_back_old;
+    uint32_t write_back_old = 0;
     uint32_t first_loop = 1;
     if(rn == PC) {
         //psr bits are used, so that's an exception if the flags aren't set, weird
