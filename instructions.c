@@ -319,6 +319,7 @@ armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t i
     return EXCEPT_NONE;
 }
 
+#define SDT_REGISTER   ALU_TYPE_IMM
 #define SDT_PREINDEX   0x01000000
 #define SDT_OFFSET_ADD 0x00800000
 #define SDT_LOAD_BYTE  0x00400000
@@ -344,12 +345,13 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     uint32_t rn_val;
     page_info_t *page;
 
-    if(instruction&ALU_TYPE_IMM) {
+    if(!(instruction&SDT_REGISTER)) {
         op2 = instruction&0xfff;
     }
     else {
         op2 = OperandShift(cpu,instruction&0xfff,0,NULL);
     }
+    LOG("SDI op2 = %08x\n",op2);
     if(rn == PC) {
         rn_val = GETPC(cpu);
     }

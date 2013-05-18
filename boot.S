@@ -19,7 +19,8 @@ FIQ:
 
 dummy_handler:
         ADD R0,R0,#1
-        CMP R0,#4
+        LDR R1,=0x123456
+        CMP R0,R1
         BGE loop_complete
         B dummy_handler
 loop_complete:
