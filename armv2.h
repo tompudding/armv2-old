@@ -109,6 +109,13 @@ typedef enum {
     EXCEPT_NONE                  = 8,
 } armv2exception_t;
 
+typedef struct {
+    uint32_t mode;
+    uint32_t pc;
+    uint32_t flags;
+    uint32_t save_reg;
+} exception_handler_t;
+
 typedef enum {
     ARMV2STATUS_OK = 0,
     ARMV2STATUS_INVALID_CPUSTATE,
@@ -137,6 +144,7 @@ typedef struct {
     uint32_t *physical_ram;
     uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];
+    exception_handler_t exception_handlers[EXCEPT_NONE];
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it

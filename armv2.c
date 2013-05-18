@@ -5,7 +5,6 @@
 #include <string.h>
 #include "armv2.h"
 
-
 armv2status_t run_armv2(armv2_t *cpu) {
     uint32_t running = 1;
     //for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
@@ -179,6 +178,10 @@ armv2status_t run_armv2(armv2_t *cpu) {
         //handle the exception if there was one
         if(exception != EXCEPT_NONE) {
             LOG("Instruction exception %d\n",exception);
+            exception_handler_t ex_handler = cpu->exception_handlers[exception];
+            cpu->regs.actual[ex_handler.save_reg] = cpu->regs.actual[PC];
+            cpu->regs.actual[PC] = ((cpu->regs.actual[PC])&0xfffffffc) | ex_handler.mode;
+            cpu->pc = ex_handler.pc-4;
         }
     }
     return ARMV2STATUS_OK;

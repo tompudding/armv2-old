@@ -7,6 +7,7 @@
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     uint32_t num_pages = 0;
     armv2status_t retval = ARMV2STATUS_OK;
+
     if(NULL == cpu) {
         LOG("%s error, NULL cpu\n",__func__);
         return ARMV2STATUS_INVALID_CPUSTATE;
@@ -65,6 +66,20 @@ armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
     for(uint32_t i=0;i<NUM_EFFECTIVE_REGS;i++) {
         cpu->regs.effective[i] = &cpu->regs.actual[i];
     }
+
+    //Set up the exception conditions
+    for(uint32_t i=0;i<EXCEPT_NONE;i++) {
+        cpu->exception_handlers[i].mode     = MODE_SUP;
+        cpu->exception_handlers[i].pc       = i*4;
+        cpu->exception_handlers[i].flags    = FLAG_I;
+        cpu->exception_handlers[i].save_reg = LR_S;
+    }
+    cpu->exception_handlers[EXCEPT_IRQ].mode     = MODE_IRQ;
+    cpu->exception_handlers[EXCEPT_IRQ].save_reg = LR_I;
+    cpu->exception_handlers[EXCEPT_FIQ].mode     = MODE_FIQ;
+    cpu->exception_handlers[EXCEPT_IRQ].save_reg = LR_I;
+    cpu->exception_handlers[EXCEPT_FIQ].flags |= FLAG_F;
+    cpu->exception_handlers[EXCEPT_RST].flags |= FLAG_F;
 
 cleanup:
     if(retval != ARMV2STATUS_OK) {

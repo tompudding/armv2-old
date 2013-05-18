@@ -251,6 +251,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
             //Only update the PC part
             SETPC(cpu,result);
         }
+        cpu->pc = GETPC(cpu)-4;
     }
     else {
         if(instruction&ALU_SETS_FLAGS) {
@@ -395,7 +396,8 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
 
         if(rd == PC) {
             //don't set any of the flags
-            SETPC(cpu,value-4); //the -4 is a hack because we increment on the next loop
+            cpu->pc = value-4;
+            SETPC(cpu,value);
         }
         else {
             GETREG(cpu,rd) = value;
@@ -439,7 +441,8 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     }
     if((instruction&SDT_PREINDEX) == 0  || instruction&SDT_WRITE_BACK) {
         if(rn == PC) {
-            SETPC(cpu,rn_val-4);
+            cpu->pc = rn_val-4;
+            SETPC(cpu,rn_val);
         }
         else {
             GETREG(cpu,rn) = rn_val;
@@ -549,6 +552,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
                 else {
                     cpu->regs.actual[PC] = value;
                 }
+                cpu->pc = GETPC(cpu)-4;
             }
             else {
                 if(user_bank) {
@@ -626,7 +630,8 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
 
     if(rd == PC) {
         //don't set any of the flags
-        SETPC(cpu,value-4); //the -4 is a hack because we increment on the next loop
+        cpu->pc = value-4;
+        SETPC(cpu,value); //the -4 is a hack because we increment on the next loop
     }
     else {
         GETREG(cpu,rd) = value;
