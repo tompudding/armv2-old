@@ -144,7 +144,13 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
     uint32_t arith_v = cpu->regs.actual[PC]&FLAG_V;
     uint64_t result64;
     if(instruction&ALU_TYPE_IMM) {
-        source_val = (instruction&0xff) << ((instruction>>7)&0x1e);
+        uint32_t right_rotate = (instruction>>7)&0x1e;
+        if(right_rotate != 0) {
+            source_val = ((instruction&0xff) << (32-right_rotate)) | ((instruction&0xff) >> right_rotate);
+        }
+        else {
+            source_val = instruction&0xff;
+        }
     }
     else {
         source_val = OperandShift(cpu,instruction&0xfff,instruction&0x10,&shift_c);
@@ -510,6 +516,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         //0x03fffffc will cause the second to be written to (0x04000000&0x03ffffff) == 0. Hmmm
         retval = EXCEPT_ADDRESS;
         //we don't return, we're supposed to complete the instruction
+        
     }
 
     if(write_back) {
@@ -520,6 +527,9 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         else {
             GETREG(cpu,rn) = address + 4*num_registers;
         }
+    }
+    if(retval != EXCEPT_NONE) {
+        return retval;
     }
 
     for(rs=0;rs<16;rs++,address+=4,first_loop=0) {

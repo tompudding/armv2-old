@@ -6,10 +6,10 @@ COPY=arm-none-eabi-objcopy
 all: armv2 boot.rom rijndael
 
 armv2: armv2.c instructions.c init.c armv2.h
-	${CC} ${CFLAGS} -O3 -o $@ armv2.c instructions.c init.c
+	${CC} ${CFLAGS} -g -o $@ armv2.c instructions.c init.c
 
 boot.rom: boot.S rijndael
-	${AS} -march=armv2 -o boot.o $<
+	${AS} -march=armv2 -mapcs-26 -o boot.o $<
 	${COPY} -O binary boot.o boot.bin
 	python create.py boot.bin rijndael $@
 

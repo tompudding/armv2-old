@@ -18,5 +18,10 @@ FIQ:
         SWI #7
 
 start:
+        MOV SP,#0x100000
+        SUB SP,SP,#4
         LDR R0,=0x80ac
-        MOV PC,R0
+        ADR LR,exit
+        MOVS PC,R0
+exit:   
+        SWI #8
