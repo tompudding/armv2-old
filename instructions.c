@@ -479,7 +479,6 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
 
 armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
     uint32_t rn         = (instruction>>16)&0xf;
     uint32_t ldm        = instruction&MDT_LDM;
     uint32_t write_back = instruction&MDT_WRITE_BACK;
@@ -492,7 +491,9 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     int rs;
     armv2exception_t retval = EXCEPT_NONE;
     uint32_t write_back_old = 0;
+    uint32_t write_back_value = 0;
     uint32_t first_loop = 1;
+    LOG("%s %d %d %d %d %d %d %d %d\n",__func__,rn,!!ldm,!!write_back,!!setflags,!!offset,!!preindex,!!user_bank,num_registers);
     if(rn == PC) {
         //psr bits are used, so that's an exception if the flags aren't set, weird
         address = cpu->pc | GETMODEPSR(cpu);
@@ -504,7 +505,11 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
 
     //the pre/post addressing and offset direction seem a bit weird to me, but here's how I think it affects things
     if(offset == 0) {
-        address -= (num_registers<<2);
+        address -= (num_registers*4);
+        write_back_value = address;
+    }
+    else {
+        write_back_value = address + (num_registers*4);
     }
     if(!!preindex == !!offset) {
         address += 4;
@@ -521,23 +526,26 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
 
     if(write_back) {
         write_back_old = user_bank ? GETUSERREG(cpu,rn) : GETREG(cpu,rn);
+        LOG("%08x %08x\n",address,write_back_value);
         if(user_bank) {
-            GETUSERREG(cpu,rn) = address + 4*num_registers;
+            GETUSERREG(cpu,rn) = write_back_value;
         }
         else {
-            GETREG(cpu,rn) = address + 4*num_registers;
+            GETREG(cpu,rn) = write_back_value;
         }
     }
     if(retval != EXCEPT_NONE) {
         return retval;
     }
-
-    for(rs=0;rs<16;rs++,address+=4,first_loop=0) {
+    //shitty hack, cancel the increment we're about to do
+    address -= 4;
+    for(rs=0;rs<16;rs++,first_loop=0) {
         uint32_t value;
         page_info_t *page;
         if(((instruction>>rs)&1) == 0) {
             continue;
-        }    
+        }
+        address += 4;
     
         page = cpu->page_tables[PAGEOF(address)];
         if(NULL == page) {
