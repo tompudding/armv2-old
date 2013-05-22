@@ -1,12 +1,16 @@
 CC=gcc
-CFLAGS=-std=c99 -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes
+AR=ar
+CFLAGS=-std=c99 -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-prototypes -Wmissing-prototypes -O3
 AS=arm-none-eabi-as
 COPY=arm-none-eabi-objcopy
 
-all: armv2 boot.rom rijndael
+all: armtest boot.rom rijndael
 
-armv2: armv2.c instructions.c init.c armv2.h
-	${CC} ${CFLAGS} -g -o $@ armv2.c instructions.c init.c
+armtest: armtest.c armv2.a
+	${CC} ${CFLAGS} -o $@ $^
+
+armv2.a: armv2.o instructions.o init.o armv2.h
+	${AR} rcs $@ armv2.o instructions.o init.o
 
 boot.rom: boot.S rijndael
 	${AS} -march=armv2 -mapcs-26 -o boot.o $<
@@ -17,5 +21,5 @@ rijndael: encrypt.c rijndael-alg-fst.c rijndael-alg-fst.h
 	arm-none-eabi-gcc -march=armv2 -static -Wa,-mapcs-26 -mno-thumb-interwork -marm -o $@ $^ 
 
 clean:
-	rm -f armv2 rijndael boot.rom
+	rm -f armv2 rijndael boot.rom armtest armv2.o instructions.o init.o
 
