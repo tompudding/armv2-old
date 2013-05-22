@@ -107,6 +107,8 @@ typedef enum {
     EXCEPT_IRQ                   = 6,
     EXCEPT_FIQ                   = 7,
     EXCEPT_NONE                  = 8,
+    EXCEPT_BREAKPOINT            = 9,
+    EXCEPT_MAX,
 } armv2exception_t;
 
 typedef struct {
@@ -122,6 +124,7 @@ typedef enum {
     ARMV2STATUS_MEMORY_ERROR,
     ARMV2STATUS_VALUE_ERROR,
     ARMV2STATUS_IO_ERROR,
+    ARMV2STATUS_BREAKPOINT
 } armv2status_t;
 
 typedef struct {
@@ -144,7 +147,7 @@ typedef struct {
     uint32_t *physical_ram;
     uint32_t physical_ram_size;
     page_info_t *page_tables[NUM_PAGE_TABLES];
-    exception_handler_t exception_handlers[EXCEPT_NONE];
+    exception_handler_t exception_handlers[EXCEPT_MAX];
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it
@@ -157,7 +160,7 @@ typedef armv2exception_t (*instruction_handler_t)(armv2_t *cpu,uint32_t instruct
 armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
-armv2status_t run_armv2(armv2_t *cpu);
+armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
 
 
 

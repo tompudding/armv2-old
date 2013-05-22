@@ -145,7 +145,7 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
             //It's ok if it's all that's left
             
             if(read_bytes != size) {
-                LOG("Error %d %d %d\n",page_num,read_bytes,size);
+                LOG("Error %d %zd %zd\n",page_num,read_bytes,size);
                 retval = ARMV2STATUS_IO_ERROR;
                 goto close_file;
             }

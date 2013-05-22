@@ -5,10 +5,17 @@
 #include <string.h>
 #include "armv2.h"
 
-armv2status_t run_armv2(armv2_t *cpu) {
+armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
     uint32_t running = 1;
     //for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
+    //instructions of -1 means run forever
     while(running) {
+        if(instructions == 0) {
+            return ARMV2STATUS_OK;
+        }
+        if(instructions > 0) {
+            instructions--;
+        }
         armv2exception_t exception = EXCEPT_NONE;
         cpu->pc = (cpu->pc+4)&0x3ffffff;
         //check if PC is valid
@@ -198,6 +205,16 @@ armv2status_t run_armv2(armv2_t *cpu) {
     handle_exception:
         if(exception != EXCEPT_NONE) {
             LOG("Instruction exception %d\n",exception);
+            if(exception == EXCEPT_BREAKPOINT) {
+                if(instructions == -1) {
+                    //this means we're running forver, so treat this as an SWI
+                    exception = EXCEPT_SOFTWARE_INTERRUPT;
+                }
+                else {
+                    //This is special and means stop executing the emulator
+                    return ARMV2STATUS_BREAKPOINT;
+                }
+            }
             exception_handler_t ex_handler = cpu->exception_handlers[exception];
             cpu->regs.actual[ex_handler.save_reg] = cpu->regs.actual[PC];
             cpu->regs.actual[PC] = ((cpu->regs.actual[PC])&0xfffffffc) | ex_handler.mode;
@@ -219,7 +236,7 @@ int main(int argc, char *argv[]) {
         LOG("Error loading rom %d\n",result);
         return result;
     }
-    run_armv2(&armv2);
+    run_armv2(&armv2,-1);
     goto cleanup;
 
 cleanup:
