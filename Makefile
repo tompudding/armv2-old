@@ -6,7 +6,7 @@ COPY=arm-none-eabi-objcopy
 
 all: armtest _armv2.so boot.rom rijndael
 
-_armv2.so: armv2.a
+_armv2.so: armv2.a _armv2.pyx carmv2.pxd
 	python setup.py build_ext --inplace
 
 armtest: armtest.c armv2.a

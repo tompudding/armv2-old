@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-armv2status_t init_armv2(armv2_t *cpu, uint32_t memsize) {
+armv2status_t init(armv2_t *cpu, uint32_t memsize) {
     uint32_t num_pages = 0;
     armv2status_t retval = ARMV2STATUS_OK;
 
