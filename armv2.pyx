@@ -18,9 +18,17 @@ cdef class Armv2:
             free(self.cpu)
             self.cpu = NULL
 
-    def __init__(self,size):
+    def __init__(self,size,filename = None):
         cdef carmv2.armv2status_t result
         cdef uint32_t mem = size
         result = carmv2.init(self.cpu,mem)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError()
+        if filename != None:
+            self.LoadROM(filename)
+
+    def LoadROM(self,filename):
+        result = carmv2.load_rom(self.cpu,filename)
+        if result != carmv2.ARMV2STATUS_OK:
+            raise ValueError()
+

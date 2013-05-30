@@ -4,16 +4,16 @@ CFLAGS=-std=c99 -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-pr
 AS=arm-none-eabi-as
 COPY=arm-none-eabi-objcopy
 
-all: armtest _armv2.so boot.rom rijndael
+all: armtest armv2.so boot.rom rijndael
 
-_armv2.so: libarmv2.a _armv2.pyx carmv2.pxd
+armv2.so: libarmv2.a armv2.pyx carmv2.pxd
 	python setup.py build_ext --inplace
 
 armtest: armtest.c libarmv2.a
 	${CC} ${CFLAGS} -o $@ $^
 
-libarmv2.a: armv2.o instructions.o init.o armv2.h
-	${AR} rcs $@ armv2.o instructions.o init.o
+libarmv2.a: step.o instructions.o init.o armv2.h
+	${AR} rcs $@ step.o instructions.o init.o
 
 boot.rom: boot.S rijndael
 	${AS} -march=armv2 -mapcs-26 -o boot.o $<
@@ -24,5 +24,5 @@ rijndael: encrypt.c rijndael-alg-fst.c rijndael-alg-fst.h
 	arm-none-eabi-gcc -march=armv2 -static -Wa,-mapcs-26 -mno-thumb-interwork -marm -o $@ $^ 
 
 clean:
-	rm -f armv2 rijndael boot.rom armtest armv2.o instructions.o init.o _armv2.c _armv2.so *~ libarmv2.a boot.bin boot.o
+	rm -f armv2 rijndael boot.rom armtest step.o instructions.o init.o armv2.c armv2.so *~ libarmv2.a boot.bin boot.o
 	python setup.py clean

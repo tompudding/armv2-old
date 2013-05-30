@@ -4,5 +4,5 @@ from Cython.Distutils import build_ext
 
 setup(
     cmdclass = {'build_ext': build_ext},
-    ext_modules = [Extension("_armv2", ["_armv2.pyx"], extra_objects = ['libarmv2.a'])]
+    ext_modules = [Extension("armv2", ["armv2.pyx"], extra_objects = ['libarmv2.a'])]
 )
