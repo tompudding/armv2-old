@@ -8,3 +8,5 @@ print cpu.regs.pc
 cpu.regs.pc = 3
 cpu.Step(1)
 print cpu.regs.pc
+cpu.regs[:4] = [1,2,3,4]
+print cpu.regs

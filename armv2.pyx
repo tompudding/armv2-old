@@ -3,13 +3,14 @@ from libc.stdint cimport uint32_t, int64_t
 from libc.stdlib cimport malloc, free
 
 NUMREGS = carmv2.NUMREGS
+NUM_EFFECTIVE_REGS = carmv2.NUM_EFFECTIVE_REGS
 
 class Registers(object):
     mapping = {'fp' : 12,
                'sp' : 13,
                'lr' : 14,
                'pc' : 15}
-    for i in xrange(16):
+    for i in xrange(NUM_EFFECTIVE_REGS):
         mapping['r%d' % i] = i
                
     def __init__(self,cpu):
@@ -31,10 +32,21 @@ class Registers(object):
         self.cpu.setregs(index,value)
 
     def __getitem__(self,index):
+        if isinstance(index,slice):
+            indices = index.indices(NUM_EFFECTIVE_REGS)
+            return [self.cpu.getregs(i) for i in xrange(*indices)]
         return self.cpu.getregs(index)
 
     def __setitem__(self,index,value):
+        if isinstance(index,slice):
+            indices = index.indices(NUM_EFFECTIVE_REGS)
+            for i in xrange(*indices):
+                self.cpu.setregs(i,value[i])
+            return
         return self.cpu.setregs(index,value)
+
+    def __repr__(self):
+        return repr(self[:])
 
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
@@ -52,12 +64,12 @@ cdef class Armv2:
             self.cpu = NULL
 
     def getregs(self,index):
-        if index > 16:
+        if index >= NUM_EFFECTIVE_REGS:
             raise IndexError()
         return int(self.cpu.regs.effective[index][0])
 
     def setregs(self,index,value):
-        if index > 16:
+        if index >= NUM_EFFECTIVE_REGS:
             raise IndexError()
         self.cpu.regs.effective[index][0] = value
         if index == carmv2.PC:

@@ -1,33 +1,3 @@
-FP                   = 12
-SP                   = 13
-LR                   = 14
-PC                   = 15
-SP_S                 = 16
-LR_S                 = 17
-SP_I                 = 18
-LR_I                 = 19
-R8_F                 = 20
-R9_F                 = 21
-R10_F                = 22
-R11_F                = 23
-FP_F                 = 24
-SP_F                 = 25
-LR_F                 = 26
-R13_S                = 16
-R14_S                = 17
-R13_I                = 18
-R14_I                = 19
-R12_F                = 24
-R13_F                = 25
-R14_F                = 26
-
-PAGE_SIZE_BITS       = (12)
-PAGE_SIZE            = (1<<PAGE_SIZE_BITS)
-PAGE_MASK            = (PAGE_SIZE-1)
-NUM_PAGE_TABLES      = (1<<(26 - PAGE_SIZE_BITS))
-WORDS_PER_PAGE       = (1<<(PAGE_SIZE_BITS-2))
-MAX_MEMORY           = (1<<26)
-
 from libc.stdint cimport uint32_t, int64_t, int32_t
 
 cdef extern from "armv2.h":
