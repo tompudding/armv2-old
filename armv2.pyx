@@ -4,8 +4,41 @@ from libc.stdlib cimport malloc, free
 
 NUMREGS = carmv2.NUMREGS
 
+class Registers(object):
+    mapping = {'fp' : 12,
+               'sp' : 13,
+               'lr' : 14,
+               'pc' : 15}
+    for i in xrange(16):
+        mapping['r%d' % i] = i
+               
+    def __init__(self,cpu):
+        self.cpu = cpu
+
+    def __getattr__(self,attr):
+        try:
+            index = self.mapping[attr]
+        except KeyError:
+            raise AttributeError()
+        return self.cpu.getregs(index)
+
+    def __setattr__(self,attr,value):
+        try:
+            index = self.mapping[attr]
+        except KeyError:
+            super(Registers,self).__setattr__(attr,value)
+            return
+        self.cpu.setregs(index,value)
+
+    def __getitem__(self,index):
+        return self.cpu.getregs(index)
+
+    def __setitem__(self,index,value):
+        return self.cpu.setregs(index,value)
+
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
+    cdef public regs
 
     def __cinit__(self, *args, **kwargs):
         self.cpu = <carmv2.armv2_t*>malloc(sizeof(carmv2.armv2_t))
@@ -18,10 +51,23 @@ cdef class Armv2:
             free(self.cpu)
             self.cpu = NULL
 
+    def getregs(self,index):
+        if index > 16:
+            raise IndexError()
+        return int(self.cpu.regs.effective[index][0])
+
+    def setregs(self,index,value):
+        if index > 16:
+            raise IndexError()
+        self.cpu.regs.effective[index][0] = value
+        if index == carmv2.PC:
+            self.cpu.pc = int((0xfffffffc + (value&0x3ffffffc))&0xffffffff)
+
     def __init__(self,size,filename = None):
         cdef carmv2.armv2status_t result
         cdef uint32_t mem = size
         result = carmv2.init(self.cpu,mem)
+        self.regs = Registers(self)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError()
         if filename != None:
