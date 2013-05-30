@@ -32,3 +32,8 @@ cdef class Armv2:
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError()
 
+    def Step(self,number = None):
+        result = carmv2.run_armv2(self.cpu,-1 if number == None else number)
+        #right now can only return OK or BREAKPOINT, but we don't care either way...
+        return result
+
