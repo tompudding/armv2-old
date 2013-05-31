@@ -1,9 +1,23 @@
 cimport carmv2
 from libc.stdint cimport uint32_t, int64_t
 from libc.stdlib cimport malloc, free
+import itertools
 
 NUMREGS = carmv2.NUMREGS
 NUM_EFFECTIVE_REGS = carmv2.NUM_EFFECTIVE_REGS
+MAX_26BIT = 1<<26
+
+def PAGEOF(addr):
+    return addr>>carmv2.PAGE_SIZE_BITS
+
+def INPAGE(addr):
+    return addr&carmv2.PAGE_MASK
+
+def WORDINPAGE(addr):
+    return INPAGE(addr)>>2
+
+class AccessError(Exception):
+    pass
 
 class Registers(object):
     mapping = {'fp' : 12,
@@ -48,9 +62,65 @@ class Registers(object):
     def __repr__(self):
         return repr(self[:])
 
+class ByteMemory(object):
+    def __init__(self,cpu):
+        self.cpu    = cpu
+        self.getter = self.cpu.getbyte
+        self.setter = self.cpu.setbyte
+
+    def __getitem__(self,index):
+        if isinstance(index,slice):
+            indices = index.indices(MAX_26BIT)
+            indices = xrange(*indices)
+        else:
+            indices = (index,)
+        return ''.join(chr(self.getter(index)) for index in indices)
+
+    def __setitem__(self,index,values):
+        if isinstance(index,slice):
+            indices = index.indices(MAX_26BIT)
+            indices = xrange(*indices)
+        else:
+            indices = (index,)
+            values  = (values,)
+        try:
+            for i,v in itertools.izip_longest(indices,values):
+                self.setter(i,ord(v))
+        except TypeError:
+            raise ValueError('Wrong values sequence length')
+
+class WordMemory(object):
+    def __init__(self,cpu):
+        self.cpu    = cpu
+        self.getter = self.cpu.getword
+        self.setter = self.cpu.setword
+
+    def __getitem__(self,index):
+        if isinstance(index,slice):
+            indices = index.indices(MAX_26BIT)
+            indices = xrange(*indices)
+        else:
+            indices = (index,)
+        return [self.getter(index) for index in indices]
+
+    def __setitem__(self,index,values):
+        if isinstance(index,slice):
+            indices = index.indices(MAX_26BIT)
+            indices = xrange(*indices)
+        else:
+            indices = (index,)
+            values  = (values,)
+        try:
+            for i,v in itertools.izip_longest(indices,values):
+                self.setter(i,v)
+        except TypeError:
+            raise ValueError('Wrong values sequence length')
+
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
     cdef public regs
+    cdef public mem
+    cdef public memw
 
     def __cinit__(self, *args, **kwargs):
         self.cpu = <carmv2.armv2_t*>malloc(sizeof(carmv2.armv2_t))
@@ -75,11 +145,45 @@ cdef class Armv2:
         if index == carmv2.PC:
             self.cpu.pc = int((0xfffffffc + (value&0x3ffffffc))&0xffffffff)
 
+    def getbyte(self,addr):
+        cdef uint32_t word = self.getword(addr)
+        cdef uint32_t b = (addr&3)<<3
+        return (word>>b)&0xff;
+
+    def setbyte(self,addr,value):
+        cdef uint32_t word = self.getword(addr)
+        cdef uint32_t b = (addr&3)<<3
+        cdef uint32_t mask = 0xff<<b
+        cdef uint32_t new_word = (word&(~mask)) | ((value&0xff)<<b)
+        self.setword(addr,new_word)
+
+    def getword(self,addr):
+        if addr >= MAX_26BIT:
+            raise IndexError()
+
+        cdef carmv2.page_info_t *page = self.cpu.page_tables[PAGEOF(addr)]
+        if NULL == page:
+            raise AccessError()
+
+        return page.memory[WORDINPAGE(addr)]
+
+    def setword(self,addr,value):
+        if addr >= MAX_26BIT:
+            raise IndexError()
+
+        cdef carmv2.page_info_t *page = self.cpu.page_tables[PAGEOF(addr)]
+        if NULL == page:
+            raise AccessError()
+
+        page.memory[WORDINPAGE(addr)] = int(value)
+
     def __init__(self,size,filename = None):
         cdef carmv2.armv2status_t result
         cdef uint32_t mem = size
         result = carmv2.init(self.cpu,mem)
         self.regs = Registers(self)
+        self.mem  = ByteMemory(self)
+        self.memw = WordMemory(self)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError()
         if filename != None:
