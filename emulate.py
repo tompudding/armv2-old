@@ -1,21 +1,34 @@
 import armv2
 import binascii
+import debugger
+import sys
 
-cpu = armv2.Armv2(size = 2**16,
-                  filename = 'boot.rom')
+class StdOutWrapper:
+    text = []
+    def write(self,txt):
+        self.text.append(txt)
+        if len(self.text) > 500:
+            self.text = self.text[:500]
+    def get_text(self):
+        return ''.join(self.text)
 
-cpu.Step(1)
-print cpu.regs.pc
-cpu.regs.pc = 3
-cpu.Step(1)
-print cpu.regs.pc
-cpu.regs[:4] = [1,2,3,4]
-print cpu.regs
+def main(stdscr):
+    curses.use_default_colors()
+    cpu = armv2.Armv2(size = 2**16,
+                      filename = 'boot.rom')
 
-backup = cpu.mem[:9]
+    dbg = debugger.Debugger(cpu,stdscr)
+    dbg.Run()
 
-cpu.mem[:9] = 'abcdefghi'
-print binascii.hexlify(cpu.mem[:12])
-cpu.mem[:9] = backup
-print binascii.hexlify(cpu.mem[:12])
-print cpu.memw[:3]
+if __name__ == '__main__':
+    import curses
+    mystdout = StdOutWrapper()
+    sys.stdout = mystdout
+    sys.stderr = mystdout
+    try:
+        curses.wrapper(main)
+    finally:
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
+        sys.stdout.write(mystdout.get_text())
+        

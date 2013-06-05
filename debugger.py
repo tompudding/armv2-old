@@ -1,0 +1,279 @@
+import curses
+import disassemble
+import time
+import armv2
+
+class WindowControl:
+    SAME    = 1
+    RESUME  = 2
+    NEXT    = 3
+    RESTART = 4
+
+class View(object):
+    def __init__(self,h,w,y,x):
+        self.width  = w
+        self.height = h
+        self.startx = x
+        self.starty = y
+        self.window = curses.newwin(self.height,self.width,self.starty,self.startx)
+        self.window.keypad(1)
+
+    def Centre(self,pos):
+        pass
+
+    def Select(self,pos):
+        pass
+
+    def TakeInput(self):
+        return WindowControl.SAME
+
+class Debug(View):
+    label_width = 14
+    def __init__(self,debugger,h,w,y,x):
+        super(Debug,self).__init__(h,w,y,x)
+        self.selected = 0
+        self.debugger = debugger
+
+    def Centre(self,pos = None):
+        if pos == None:
+            pos = self.selected
+        #Set our pos such that the given pos is as close to the centre as possible
+        
+        correct = None
+        self.disassembly = []
+        start = max(pos-((self.height-2)/2)*4,0)
+        end = min(pos + ((self.height-2)/2)*4,len(self.debugger.cpu.mem))
+        print '%x - %x - %x' % (start,pos,end)
+        dis = []
+        for (p,b,ins,args) in disassemble.Disassemble(self.debugger.cpu,start,start+(self.height-2)*4):
+            arrow = '==>' if p == self.debugger.cpu.pc else ''
+            bpt   = '*' if p in self.debugger.breakpoints else ' '
+            dis.append( (p,'%3s%s%07x %08x : %s %s' % (arrow,bpt,p,b,ins,args)))
+                
+        self.disassembly = dis
+
+    def Select(self,pos):
+        self.selected = pos
+
+    def TakeInput(self):
+        ch = self.window.getch()
+        #print ch,curses.KEY_DOWN
+        if ch == curses.KEY_DOWN:
+            try:
+                self.selected = self.disassembly[self.selected_pos+1][0]
+                self.Centre(self.selected)
+            except IndexError:
+                pass
+        elif ch == curses.KEY_UP:
+            if self.selected_pos > 0:
+                self.selected = self.disassembly[self.selected_pos-1][0]
+                self.Centre(self.selected)
+        elif ch == curses.KEY_NPAGE:
+            #We can't jump to any arbitrary point because we don't know the instruction boundaries
+            #instead jump to the end of the screen twice, which should push us down by a whole page
+            for i in xrange(2):
+                p = self.disassembly[-1][0]
+                self.Centre(p)
+
+            self.Select(p)
+        elif ch == curses.KEY_PPAGE:
+            for i in xrange(2):
+                p = self.disassembly[0][0]
+                self.Centre(p)
+
+            self.Select(p)
+        elif ch == ord('\t'):
+            return WindowControl.NEXT
+        elif ch == ord(' '):
+            if self.selected in self.debugger.breakpoints:
+                self.debugger.RemoveBreakpoint(self.selected)
+            else:
+                self.debugger.AddBreakpoint(self.selected)
+            self.Centre(self.selected)
+        elif ch == ord('c'):
+            self.debugger.Continue()
+            return WindowControl.RESUME
+        elif ch == ord('s'):
+            self.debugger.Step()
+            return WindowControl.RESUME
+        elif ch == ord('r'):
+            self.debugger.cpu.Reset()
+            return WindowControl.RESTART
+        return WindowControl.SAME
+
+
+    def Draw(self,draw_border = False):
+        self.window.clear()
+        if draw_border:
+            self.window.border()
+        self.selected_pos = None
+        for i,(pos,line) in enumerate(self.disassembly):
+            if pos == self.selected:
+                self.selected_pos = i
+                self.window.addstr(i+1,1,line,curses.A_REVERSE)
+            else:
+                #print i,line
+                self.window.addstr(i+1,1,line)
+        self.window.refresh()
+
+class State(View):
+    reglist = [('r%d' % i) for i in xrange(12)] + ['fp','sp','lr','pc']
+    def __init__(self,debugger,h,w,y,x):
+        super(State,self).__init__(h,w,y,x)
+        self.debugger = debugger
+
+    def Draw(self,draw_border = False):
+        self.window.clear()
+        if draw_border:
+            self.window.border()
+        for i in xrange(16):
+            regname = self.reglist[i]
+            value = self.debugger.cpu.regs[i]
+            self.window.addstr(i+1,1,'%3s : %08x' % (regname,value))
+        self.window.refresh()
+
+class Help(View):
+    def Draw(self,draw_border = False):
+        self.window.clear()
+        if draw_border:
+            self.window.border()
+        for i,(key,action) in enumerate( (('c','continue'),
+                                          ('g','goto'),
+                                          ('s','step'),
+                                          ('space','set breakpoint'),
+                                          ('tab','switch window')) ):
+            self.window.addstr(i+1,1,'%5s - %s' % (key,action))
+        self.window.refresh()
+
+class Memdump(View):
+    display_width = 16
+    key_time = 0.5
+    masks  = (0x0000,0x3000000,0x3f00000,0x3ff0000,0x3fff000,0x3ffff00,0x3fffff0,0x3ffffff)
+    shifts = (24,20,16,12,8,4,0)
+    def __init__(self,debugger,h,w,y,x):
+        super(Memdump,self).__init__(h,w,y,x)
+        self.debugger = debugger
+        self.pos      = 0
+        self.selected = 0
+        self.lastkey  = 0
+        self.keypos   = 0
+
+    def Draw(self,draw_border = False):
+        self.window.clear()
+        if draw_border:
+            self.window.border()
+        for i in xrange(self.height-2):
+            addr = self.pos + i*self.display_width
+            data = self.debugger.cpu.mem[addr:addr+self.display_width]
+            if len(data) < self.display_width:
+                data += '??'*(self.display_width-len(data))
+            data_string = ' '.join((('%02x' % ord(data[i])) if i < len(data) else '??') for i in xrange(self.display_width))
+            line = '%07x : %s' % (addr,data_string)
+            if addr == self.selected:
+                self.window.addstr(i+1,1,line,curses.A_REVERSE)
+            else:
+                self.window.addstr(i+1,1,line)
+        self.window.refresh()
+
+    def TakeInput(self):
+        ch = self.window.getch()
+        if ch == curses.KEY_DOWN:
+            self.selected += self.display_width
+            if self.selected >= 0x10000:
+                self.selected = 0x10000
+            if ((self.selected - self.pos)/self.display_width) >= (self.height - 2):
+                self.pos = self.selected - (self.height-3)*self.display_width
+        elif ch == curses.KEY_UP:
+            self.selected -= self.display_width
+            if self.selected < 0:
+                self.selected = 0
+            if self.selected < self.pos:
+                self.pos = self.selected
+        elif ch in [ord(c) for c in '0123456789abcdef']:
+            newnum = int(chr(ch),16)
+            now = time.time()
+            if now - self.lastkey > self.key_time:
+                self.keypos = 0
+            self.pos &= self.masks[self.keypos]
+            self.pos |= newnum << self.shifts[self.keypos]
+            self.keypos += 1
+            self.keypos &= 3
+            self.lastkey = now
+            self.selected = self.pos
+            
+        elif ch == ord('\t'):
+            return WindowControl.NEXT
+        return WindowControl.SAME
+    
+
+class Debugger(object):
+    BKPT = 0xef000000 | armv2.SWI_BREAKPOINT
+    def __init__(self,cpu,stdscr):
+        self.cpu              = cpu
+        self.breakpoints      = {}
+        self.selected         = 0
+        self.stdscr           = stdscr
+        #self.labels           = Labels(labels)
+
+        self.h,self.w       = self.stdscr.getmaxyx()
+        self.code_window    = Debug(self,self.h,self.w/2,0,0)
+        self.state_window   = State(self,self.h/2,self.w/4,0,self.w/2)
+        self.help_window    = Help(self.h/2,self.w/4,0,3*(self.w/4))
+        self.memdump_window = Memdump(self,self.h/2,self.w/2,self.h/2,self.w/2)
+        self.window_choices = [self.code_window,self.memdump_window]
+        self.current_view   = self.code_window
+        self.help_window.Draw()
+
+    def AddBreakpoint(self,addr):
+        if addr&3:
+            raise ValueError()
+        if addr in self.breakpoints:
+            return
+        addr_word = addr
+        self.breakpoints[addr]   = self.cpu.memw[addr_word]
+        self.cpu.memw[addr_word] = self.BKPT
+    
+    def RemoveBreakpoint(self,addr):
+        self.cpu.memw[addr] = self.breakpoints[addr]
+        del self.breakpoints[addr]
+
+    def Continue(self,num=-1):
+        #If we're at a breakpoint and we've been asked to continue, we step it once and then replace the breakpoint
+        if num == 0:
+            return
+        if self.cpu.pc in self.breakpoints:
+            self.cpu.memw[self.cpu.pc] = self.breakpoints[self.cpu.pc]
+            self.cpu.Step(1)
+            self.cpu.memw[self.cpu.pc] = self.BKPT
+            if num > 0:
+                num -= 1
+        result = self.cpu.Step(num)
+
+    def Step(self):
+        self.Continue(1)
+        
+    def Run(self):
+        self.current_view = self.code_window
+        
+        #Set the next instruction to be a breakpoint
+        self.current_view.Select(self.cpu.pc)
+        self.current_view.Centre(self.cpu.pc)
+
+        #We're stopped, so display and wait for a keypress
+        while True:
+            #disassembly = disassemble.Disassemble(cpu.mem)
+            
+            for window in self.state_window,self.memdump_window,self.code_window:
+                window.Draw(self.current_view is window)
+
+            result = self.current_view.TakeInput()
+            if result == WindowControl.RESUME:
+                self.current_view.Centre(self.cpu.pc)
+                continue
+            elif result == WindowControl.RESTART:
+                return False
+            elif result == WindowControl.NEXT:
+                pos = self.window_choices.index(self.current_view)
+                pos = (pos + 1)%len(self.window_choices)
+                self.current_view = self.window_choices[pos]
+            

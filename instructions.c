@@ -681,7 +681,6 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     return EXCEPT_NONE;
 }
 
-#define SWI_BREAKPOINT 0x00beeeef
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);

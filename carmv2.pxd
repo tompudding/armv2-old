@@ -39,6 +39,7 @@ cdef extern from "armv2.h":
     enum: NUM_PAGE_TABLES
     enum: WORDS_PER_PAGE 
     enum: MAX_MEMORY     
+    enum: SWI_BREAKPOINT
 
     ctypedef enum:
         EXCEPT_RST                   

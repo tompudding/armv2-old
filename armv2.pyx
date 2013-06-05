@@ -6,6 +6,18 @@ import itertools
 NUMREGS = carmv2.NUMREGS
 NUM_EFFECTIVE_REGS = carmv2.NUM_EFFECTIVE_REGS
 MAX_26BIT = 1<<26
+SWI_BREAKPOINT = carmv2.SWI_BREAKPOINT
+
+class CpuExceptions:
+    Reset                = carmv2.EXCEPT_RST                   
+    UndefinedInstruction = carmv2.EXCEPT_UNDEFINED_INSTRUCTION 
+    SoftwareInterrupt    = carmv2.EXCEPT_SOFTWARE_INTERRUPT    
+    PrefetchAboprt       = carmv2.EXCEPT_PREFETCH_ABORT        
+    DataAbort            = carmv2.EXCEPT_DATA_ABORT            
+    Address              = carmv2.EXCEPT_ADDRESS               
+    Irq                  = carmv2.EXCEPT_IRQ                   
+    Fiq                  = carmv2.EXCEPT_FIQ                   
+    Breakpoint           = carmv2.EXCEPT_BREAKPOINT            
 
 def PAGEOF(addr):
     return addr>>carmv2.PAGE_SIZE_BITS
@@ -89,6 +101,9 @@ class ByteMemory(object):
         except TypeError:
             raise ValueError('Wrong values sequence length')
 
+    def __len__(self):
+        return MAX_26BIT
+
 class WordMemory(object):
     def __init__(self,cpu):
         self.cpu    = cpu
@@ -116,11 +131,15 @@ class WordMemory(object):
         except TypeError:
             raise ValueError('Wrong values sequence length')
 
+    def __len__(self):
+        return MAX_26BIT>>2
+
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
     cdef public regs
     cdef public mem
     cdef public memw
+    cdef public memsize
 
     def __cinit__(self, *args, **kwargs):
         self.cpu = <carmv2.armv2_t*>malloc(sizeof(carmv2.armv2_t))
@@ -177,11 +196,16 @@ cdef class Armv2:
 
         page.memory[WORDINPAGE(addr)] = int(value)
 
+    @property
+    def pc(self):
+        return self.cpu.pc + 4
+
     def __init__(self,size,filename = None):
         cdef carmv2.armv2status_t result
         cdef uint32_t mem = size
         result = carmv2.init(self.cpu,mem)
         self.regs = Registers(self)
+        self.memsize = size
         self.mem  = ByteMemory(self)
         self.memw = WordMemory(self)
         if result != carmv2.ARMV2STATUS_OK:

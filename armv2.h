@@ -65,6 +65,8 @@
 #define PIN_F  0x00000001
 #define PIN_I  0x00000002
 
+#define SWI_BREAKPOINT 0x00beeeef
+
 #define FLAG_SET(cpu,flag) ((cpu)->regs.actual[PC]&FLAG_##flag)
 #define FLAG_CLEAR(cpu,flag) (!FLAG_SET(cpu,flag))
 #define PIN_ON(cpu,pin) ((cpu)->pins&PIN_##pin)
