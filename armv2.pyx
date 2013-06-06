@@ -193,7 +193,8 @@ cdef class Armv2:
 
         cdef carmv2.page_info_t *page = self.cpu.page_tables[PAGEOF(addr)]
         if NULL == page:
-            raise AccessError()
+            #raise AccessError()
+            return 0
 
         return page.memory[WORDINPAGE(addr)]
 
@@ -209,6 +210,8 @@ cdef class Armv2:
 
     @property
     def pc(self):
+        #The first thing the run loop does is add 4 to PC, so PC is effectively 4 greater than 
+        #it appears to be
         return self.cpu.pc + 4
 
     @property

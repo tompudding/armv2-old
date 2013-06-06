@@ -8,6 +8,7 @@ class WindowControl:
     RESUME  = 2
     NEXT    = 3
     RESTART = 4
+    EXIT    = 5
 
 class View(object):
     def __init__(self,h,w,y,x):
@@ -97,8 +98,10 @@ class Debug(View):
             self.debugger.Step()
             return WindowControl.RESUME
         elif ch == ord('r'):
-            self.debugger.cpu.Reset()
-            return WindowControl.RESTART
+            #self.debugger.cpu.Reset()
+            return WindowControl.RESUME
+        elif ch == ord('q'):
+            return WindowControl.EXIT
         return WindowControl.SAME
 
 
@@ -141,7 +144,7 @@ class Help(View):
         if draw_border:
             self.window.border()
         for i,(key,action) in enumerate( (('c','continue'),
-                                          ('g','goto'),
+                                          ('q','quit'),
                                           ('s','step'),
                                           ('space','set breakpoint'),
                                           ('tab','switch window')) ):
@@ -150,9 +153,10 @@ class Help(View):
 
 class Memdump(View):
     display_width = 16
-    key_time = 0.5
-    masks  = (0x0000,0x3000000,0x3f00000,0x3ff0000,0x3fff000,0x3ffff00,0x3fffff0,0x3ffffff)
+    key_time = 1
+    masks  = (0xffffff,0x30fffff,0x3f0ffff,0x3ff0fff,0x3fff0ff,0x3ffff0f,0x3fffff0)
     shifts = (24,20,16,12,8,4,0)
+    max = 0x4000000
     def __init__(self,debugger,h,w,y,x):
         super(Memdump,self).__init__(h,w,y,x)
         self.debugger = debugger
@@ -176,31 +180,48 @@ class Memdump(View):
                 self.window.addstr(i+1,1,line,curses.A_REVERSE)
             else:
                 self.window.addstr(i+1,1,line)
+        
+        type_string = ('%07x' % self.pos)[:self.keypos]
+        extra = 7 - len(type_string)
+        if extra > 0:
+            type_string += '.'*extra
+        self.window.addstr(1,60,type_string)
         self.window.refresh()
+
+    def SetSelected(self,pos):
+        if pos > self.max:
+            pos = self.max
+        if pos < 0:
+            pos = 0
+        self.selected = pos
+        if ((self.selected - self.pos)/self.display_width) >= (self.height - 2):
+            self.pos = self.selected - (self.height-3)*self.display_width
+        elif self.selected < self.pos:
+            self.pos = self.selected
 
     def TakeInput(self):
         ch = self.window.getch()
         if ch == curses.KEY_DOWN:
-            self.selected += self.display_width
-            if self.selected >= 0x10000:
-                self.selected = 0x10000
-            if ((self.selected - self.pos)/self.display_width) >= (self.height - 2):
-                self.pos = self.selected - (self.height-3)*self.display_width
+            self.SetSelected(self.selected + self.display_width)
+        elif ch == curses.KEY_NPAGE:
+            self.SetSelected(self.selected + self.display_width*(self.height-2))
+        elif ch == curses.KEY_PPAGE:
+            self.SetSelected(self.selected - self.display_width*(self.height-2))
         elif ch == curses.KEY_UP:
-            self.selected -= self.display_width
-            if self.selected < 0:
-                self.selected = 0
-            if self.selected < self.pos:
-                self.pos = self.selected
+            self.SetSelected(self.selected - self.display_width)
+        elif ch == ord('q'):
+            return WindowControl.EXIT
         elif ch in [ord(c) for c in '0123456789abcdef']:
             newnum = int(chr(ch),16)
+            self.keypos %= 7
             now = time.time()
             if now - self.lastkey > self.key_time:
                 self.keypos = 0
+            if self.keypos == 0:
+                newnum &= 3
             self.pos &= self.masks[self.keypos]
             self.pos |= newnum << self.shifts[self.keypos]
             self.keypos += 1
-            self.keypos &= 3
             self.lastkey = now
             self.selected = self.pos
             
@@ -260,11 +281,11 @@ class Debugger(object):
 
     def Continue(self):
         result = None
-        with open('jim.log','wb') as f:
+        try:
             while result != armv2.Status.Breakpoint:
-                result = self.StepNum(1000)
-                f.write('%d %d\n' % (result,armv2.CpuExceptions.Breakpoint))
-                f.flush()
+                result = self.StepNum(10000)
+        except KeyboardInterrupt:
+            return
             
         
     def Run(self):
@@ -277,19 +298,22 @@ class Debugger(object):
         #We're stopped, so display and wait for a keypress
         while True:
             #disassembly = disassemble.Disassemble(cpu.mem)
-            
-            for window in self.state_window,self.memdump_window,self.code_window:
-                window.Draw(self.current_view is window)
+            try:
+                for window in self.state_window,self.memdump_window,self.code_window:
+                    window.Draw(self.current_view is window)
 
-            result = self.current_view.TakeInput()
-            if result == WindowControl.RESUME:
-                self.current_view.Select(self.cpu.pc)
-                self.current_view.Centre(self.cpu.pc)
-                continue
-            elif result == WindowControl.RESTART:
-                return False
-            elif result == WindowControl.NEXT:
-                pos = self.window_choices.index(self.current_view)
-                pos = (pos + 1)%len(self.window_choices)
-                self.current_view = self.window_choices[pos]
-            
+                result = self.current_view.TakeInput()
+                if result == WindowControl.RESUME:
+                    self.current_view.Select(self.cpu.pc)
+                    self.current_view.Centre(self.cpu.pc)
+                    continue
+                elif result == WindowControl.RESTART:
+                    return False
+                elif result == WindowControl.NEXT:
+                    pos = self.window_choices.index(self.current_view)
+                    pos = (pos + 1)%len(self.window_choices)
+                    self.current_view = self.window_choices[pos]
+                elif result == WindowControl.EXIT:
+                    raise SystemExit
+            except KeyboardInterrupt:
+                pass

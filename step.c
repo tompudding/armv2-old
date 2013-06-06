@@ -212,6 +212,8 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
                 }
                 else {
                     //This is special and means stop executing the emulator
+                    //Don't advance PC next time since we're at a bkpt
+                    cpu->pc -= 4;
                     return ARMV2STATUS_BREAKPOINT;
                 }
             }

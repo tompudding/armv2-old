@@ -178,5 +178,5 @@ armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t i
 armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
 
-#define LOG(...) printf(__VA_ARGS__)
-//#define LOG(...) filelog(__VA__ARGS__)
+//#define LOG(...) printf(__VA_ARGS__)
+#define LOG(...) 
