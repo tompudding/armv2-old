@@ -17,7 +17,15 @@ class CpuExceptions:
     Address              = carmv2.EXCEPT_ADDRESS               
     Irq                  = carmv2.EXCEPT_IRQ                   
     Fiq                  = carmv2.EXCEPT_FIQ                   
-    Breakpoint           = carmv2.EXCEPT_BREAKPOINT            
+    Breakpoint           = carmv2.EXCEPT_BREAKPOINT         
+
+class Status:
+    Ok              = carmv2.ARMV2STATUS_OK
+    InvalidCpuState = carmv2.ARMV2STATUS_INVALID_CPUSTATE
+    MemoryError     = carmv2.ARMV2STATUS_MEMORY_ERROR
+    ValueError      = carmv2.ARMV2STATUS_VALUE_ERROR
+    IoError         = carmv2.ARMV2STATUS_IO_ERROR
+    Breakpoint      = carmv2.ARMV2STATUS_BREAKPOINT
 
 def PAGEOF(addr):
     return addr>>carmv2.PAGE_SIZE_BITS
@@ -116,7 +124,10 @@ class WordMemory(object):
             indices = xrange(*indices)
         else:
             indices = (index,)
-        return [self.getter(index) for index in indices]
+        if len(indices) == 1:
+            return self.getter(index)
+        else:
+            return [self.getter(index) for index in indices]
 
     def __setitem__(self,index,values):
         if isinstance(index,slice):
@@ -200,6 +211,10 @@ cdef class Armv2:
     def pc(self):
         return self.cpu.pc + 4
 
+    @property
+    def mode(self):
+        return self.regs.pc&3
+
     def __init__(self,size,filename = None):
         cdef carmv2.armv2status_t result
         cdef uint32_t mem = size
@@ -219,7 +234,7 @@ cdef class Armv2:
             raise ValueError()
 
     def Step(self,number = None):
-        result = carmv2.run_armv2(self.cpu,-1 if number == None else number)
+        cdef uint32_t result = carmv2.run_armv2(self.cpu,-1 if number == None else number)
         #right now can only return OK or BREAKPOINT, but we don't care either way...
         return result
 

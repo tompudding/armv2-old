@@ -45,7 +45,7 @@ class Debug(View):
         end = min(pos + ((self.height-2)/2)*4,len(self.debugger.cpu.mem))
         print '%x - %x - %x' % (start,pos,end)
         dis = []
-        for (p,b,ins,args) in disassemble.Disassemble(self.debugger.cpu,start,start+(self.height-2)*4):
+        for (p,b,ins,args) in disassemble.Disassemble(self.debugger.cpu,self.debugger.breakpoints,start,start+(self.height-2)*4):
             arrow = '==>' if p == self.debugger.cpu.pc else ''
             bpt   = '*' if p in self.debugger.breakpoints else ' '
             dis.append( (p,'%3s%s%07x %08x : %s %s' % (arrow,bpt,p,b,ins,args)))
@@ -118,6 +118,7 @@ class Debug(View):
 
 class State(View):
     reglist = [('r%d' % i) for i in xrange(12)] + ['fp','sp','lr','pc']
+    mode_names = ['USR','FIQ','IRQ','SUP']
     def __init__(self,debugger,h,w,y,x):
         super(State,self).__init__(h,w,y,x)
         self.debugger = debugger
@@ -130,6 +131,8 @@ class State(View):
             regname = self.reglist[i]
             value = self.debugger.cpu.regs[i]
             self.window.addstr(i+1,1,'%3s : %08x' % (regname,value))
+        self.window.addstr(1,18,'Mode : %s' % self.mode_names[self.debugger.cpu.mode])
+        self.window.addstr(2,18,'  pc : %08x' % self.debugger.cpu.pc)
         self.window.refresh()
 
 class Help(View):
@@ -237,20 +240,32 @@ class Debugger(object):
         self.cpu.memw[addr] = self.breakpoints[addr]
         del self.breakpoints[addr]
 
-    def Continue(self,num=-1):
+    def StepNum(self,num):
         #If we're at a breakpoint and we've been asked to continue, we step it once and then replace the breakpoint
         if num == 0:
-            return
+            return None
+        print 'stepping',self.cpu.pc,num, self.cpu.pc in self.breakpoints
         if self.cpu.pc in self.breakpoints:
+            old_pos = self.cpu.pc
             self.cpu.memw[self.cpu.pc] = self.breakpoints[self.cpu.pc]
             self.cpu.Step(1)
-            self.cpu.memw[self.cpu.pc] = self.BKPT
+            self.cpu.memw[old_pos] = self.BKPT
             if num > 0:
                 num -= 1
-        result = self.cpu.Step(num)
+        return self.cpu.Step(num)
+        
 
     def Step(self):
-        self.Continue(1)
+        return self.StepNum(1)
+
+    def Continue(self):
+        result = None
+        with open('jim.log','wb') as f:
+            while result != armv2.Status.Breakpoint:
+                result = self.StepNum(1000)
+                f.write('%d %d\n' % (result,armv2.CpuExceptions.Breakpoint))
+                f.flush()
+            
         
     def Run(self):
         self.current_view = self.code_window
@@ -268,6 +283,7 @@ class Debugger(object):
 
             result = self.current_view.TakeInput()
             if result == WindowControl.RESUME:
+                self.current_view.Select(self.cpu.pc)
                 self.current_view.Centre(self.cpu.pc)
                 continue
             elif result == WindowControl.RESTART:

@@ -683,8 +683,8 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
 
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
     uint32_t type = instruction&0x00ffffff;
+    LOG("%s %x %x %x\n",__func__,type,SWI_BREAKPOINT,type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT);
     return type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT;
 }
 //Not bothering with a coprocessor for now, so these are noops

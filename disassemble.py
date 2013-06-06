@@ -1,6 +1,10 @@
 
-def Disassemble(cpu,start,end):
+def Disassemble(cpu,breakpoints,start,end):
     if start&3:
         raise ValueError
     for addr in xrange(start,end,4):
-        yield addr,cpu.memw[addr][0],'unknown',''
+        if addr in breakpoints:
+            word = breakpoints[addr]
+        else:
+            word = cpu.memw[addr]
+        yield addr,word,'unknown',''

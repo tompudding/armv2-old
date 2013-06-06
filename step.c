@@ -204,7 +204,7 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
         //handle the exception if there was one
     handle_exception:
         if(exception != EXCEPT_NONE) {
-            LOG("Instruction exception %d\n",exception);
+            //LOG("Instruction exception %d\n",exception);
             if(exception == EXCEPT_BREAKPOINT) {
                 if(instructions == -1) {
                     //this means we're running forver, so treat this as an SWI
