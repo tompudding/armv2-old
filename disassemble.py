@@ -1,5 +1,25 @@
 
 registerNames = [('r%d' % i) for i in xrange(13)] + ['sp','lr','pc']
+shiftTypes = ['LSL','LSR','ASR','ROR']
+
+def OperandShift(self,bits,type_flag):
+    rm = registerNames[bits&0xf]
+    shift_type = shiftTypes[(bits>>5)&0x3]
+    if type_flag:
+        #shift amount is a register
+        shift_val = None
+        shift = registerNames[(bits>>8)&0xf]
+    else:
+        shift_val = (bits>>7)&0x1f
+        shift = '#%d' % (shift_val)
+    if shift_type == 'ROR' and type_flag == 0 and shift_val == 0:
+        return [rm,'RRX']
+    elif shift_val == 0:
+        return [rm]
+    else:
+        #shift is nonzero
+        return [rm,shift_type + ' ' + shift]
+
 
 class Instruction(object):
     conditions = ['EQ','NE','CS','CC',
@@ -8,7 +28,7 @@ class Instruction(object):
                   'GT','LE','','NV']
     mneumonic = 'UNK'
     args = []
-    def __init__(self,addr,word):
+    def __init__(self,addr,word,cpu):
         self.addr = addr
         self.word = word
     def ToString(self):
@@ -21,10 +41,9 @@ class ALUInstruction(Instruction):
                'ORR','MOV','BIC','MVN']
     MOV = 0xd
     MVN = 0xf
-    shiftTypes = ['LSL','LSR','ASR','ROR']
     ALU_TYPE_IMM = 0x02000000
-    def __init__(self,addr,word):
-        super(ALUInstruction,self).__init__(addr,word)
+    def __init__(self,addr,word,cpu):
+        super(ALUInstruction,self).__init__(addr,word,cpu)
         opcode   = (word>>21)&0xf
         rn       = (word>>16)&0xf
         rd       = (word>>12)&0xf
@@ -39,32 +58,16 @@ class ALUInstruction(Instruction):
                 val = word&0xff
             op2 = ['#0x%x' % val]
         else:
-            op2 = self.OperandShift(word&0xfff,word&0x10)
+            op2 = OperandShift(addr,word&0xfff,word&0x10)
         if opcode in [self.MOV,self.MVN]:
             self.args = [rd] + op2
         else:
             self.args = [rd,op1] + op2
 
-    def OperandShift(self,bits,type_flag):
-        rm = registerNames[bits&0xf]
-        shift_type = self.shiftTypes[(bits>>5)&0x3]
-        if type_flag:
-            #shift amount is a register
-            shift = registerNames[(bits>>8)&0xf]
-        else:
-            shift = '#%d' % ((bits>>7)&0x1f)
-        if shift_type == 'ROR' and type_flag == 0 and shift == 0:
-            return [rm,'RRX']
-        elif shift == 0:
-            return [rm]
-        else:
-            #shift is nonzero
-            return [rm,shift_type + ' ' + shift]
-
 class MultiplyInstruction(Instruction):
     MUL_TYPE_MLA = 0x00200000
-    def __init__(self,addr,word):
-        super(MultiplyInstruction,self).__init__(addr,word)
+    def __init__(self,addr,word,cpu):
+        super(MultiplyInstruction,self).__init__(addr,word,cpu)
         rm = word&0xf
         rn = (word>>12)&0xf
         rs = (word>> 8)&0xf
@@ -77,14 +80,64 @@ class MultiplyInstruction(Instruction):
             self.mneumonic = 'MUL'
 
 class SwapInstruction(Instruction):
-    pass
+    LOAD_BYTE = 0x00400000
+    def __init__(self,addr,word,cpu):
+        super(SwapInstruction,self).__init__(addr,word,cpu)
+        rm   = word&0xf;
+        rd   = (word>>12)&0xf
+        rn   = (word>>16)&0xf
+        if word&self.LOAD_BYTE:
+            self.mneumonic = 'SWPB'
+        else:
+            self.mneumonic = 'SWP'
+        self.args = [registerNames[rd],registerNames[rm],'[%s]' % registerNames[rn]]
 
 class SingleDataTransferInstruction(Instruction):
-    pass
+    SDT_REGISTER   = 0x02000000
+    SDT_WRITE_BACK = 0x00200000
+    SDT_PREINDEX   = 0x01000000
+    SDT_LDR        = 0x00100000
+    SDT_OFFSET_ADD = 0x00800000
+    def __init__(self,addr,word,cpu):
+        super(SingleDataTransferInstruction,self).__init__(addr,word,cpu)
+        rd = (word>>12)&0xf;
+        rn = (word>>16)&0xf;
+        rd = registerNames[rd]
+        if not word&self.SDT_REGISTER:
+            offset = word&0xfff
+            if not word&self.SDT_OFFSET_ADD:
+                offset *= -1
+            op2 = ['#0x%x' % offset]
+        else:
+            op2 = OperandShift(addr,word&0xfff,0)
+            #FIXME, incorporate the negativeness
+        if word&self.SDT_LDR:
+            self.mneumonic = 'LDR'
+        else:
+            self.mneumonic = 'STR'
+        if word&self.SDT_WRITE_BACK:
+            self.mneumonic += '!'
+        
+        if rn == 0xf and not word&self.SDT_REGISTER:
+            val = cpu.memw[addr+8+offset]
+            self.args = [rd] + ['=0x%x' % val]
+            return
+            
+        rn = registerNames[rn]
+        op2.insert(0,rn)
+        
+        
+        op2[0] = '[' + op2[0]
+        if word&self.SDT_PREINDEX:
+            op2[-1] = op2[-1] + ']'
+        else:
+            op2[0] = op2[0] + ']'
+        self.args = [rd] + op2
+        
 
 class BranchInstruction(Instruction):
-    def __init__(self,addr,word):
-        super(BranchInstruction,self).__init__(addr,word)
+    def __init__(self,addr,word,cpu):
+        super(BranchInstruction,self).__init__(addr,word,cpu)
         if (word>>24)&1:
             self.mneumonic = 'BL'
         else:
@@ -107,7 +160,7 @@ class CoprocessorRegisterTransferInstruction(Instruction):
 class CoprocessorDataOperationInstruction(Instruction):
     pass
 
-def InstructionFactory(addr,word):
+def InstructionFactory(addr,word,cpu):
     tag = (word>>26)&3
     handler = None
     if tag == 0:
@@ -133,7 +186,7 @@ def InstructionFactory(addr,word):
             handler = CoprocessorRegisterTransferInstruction
         else:
             handler = CoprocessorDataOperationInstruction
-    return handler(addr,word)
+    return handler(addr,word,cpu)
 
 def Disassemble(cpu,breakpoints,start,end):
     if start&3:
@@ -143,4 +196,4 @@ def Disassemble(cpu,breakpoints,start,end):
             word = breakpoints[addr]
         else:
             word = cpu.memw[addr]
-        yield InstructionFactory(addr,word)
+        yield InstructionFactory(addr,word,cpu)

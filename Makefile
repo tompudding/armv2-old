@@ -19,7 +19,7 @@ libarmv2.a: step.o instructions.o init.o armv2.h
 	${AR} rcs $@ step.o instructions.o init.o
 
 boot.rom: boot.S rijndael
-	${AS} -march=armv2 -mapcs-26 -o boot.o $<
+	${AS} -march=armv2a -mapcs-26 -o boot.o $<
 	${COPY} -O binary boot.o boot.bin
 	python create.py boot.bin rijndael $@
 

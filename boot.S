@@ -23,5 +23,6 @@ start:
         LDR R0,=0x80ac
         ADR LR,exit
         MOVS PC,R0
+        SWP R0,R0,[R1]
 exit:   
         SWI #8
