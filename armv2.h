@@ -72,7 +72,6 @@
 #define PIN_ON(cpu,pin) ((cpu)->pins&PIN_##pin)
 #define PING_OFF(cpu,pin) (!PIN_ON(cpu,pin))
 
-
 #define COND_EQ 0x0
 #define COND_NE 0x1
 #define COND_CS 0x2

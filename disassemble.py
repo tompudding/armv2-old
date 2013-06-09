@@ -2,13 +2,17 @@
 registerNames = [('r%d' % i) for i in xrange(13)] + ['sp','lr','pc']
 
 class Instruction(object):
+    conditions = ['EQ','NE','CS','CC',
+                  'MI','PL','VS','VC',
+                  'HI','LS','GE','LT',
+                  'GT','LE','','NV']
     mneumonic = 'UNK'
     args = []
     def __init__(self,addr,word):
         self.addr = addr
         self.word = word
     def ToString(self):
-        return '%5s %s' % (self.mneumonic,', '.join(self.args)) 
+        return '%5s%2s %s' % (self.mneumonic,self.conditions[(self.word>>28)&0xf],', '.join(self.args))
 
 class ALUInstruction(Instruction):
     opcodes = ['AND','EOR','SUB','RSB',
@@ -58,7 +62,19 @@ class ALUInstruction(Instruction):
             return [rm,shift_type + ' ' + shift]
 
 class MultiplyInstruction(Instruction):
-    pass
+    MUL_TYPE_MLA = 0x00200000
+    def __init__(self,addr,word):
+        super(MultiplyInstruction,self).__init__(addr,word)
+        rm = word&0xf
+        rn = (word>>12)&0xf
+        rs = (word>> 8)&0xf
+        rd = (word>>16)&0xf
+        self.args = [registerNames[rd],registerNames[rm],registerNames[rs]]
+        if word&self.MUL_TYPE_MLA:
+            self.mneumonic = 'MLA'
+            self.args.append(registerNames[rn])
+        else:
+            self.mneumonic = 'MUL'
 
 class SwapInstruction(Instruction):
     pass
@@ -67,7 +83,14 @@ class SingleDataTransferInstruction(Instruction):
     pass
 
 class BranchInstruction(Instruction):
-    pass
+    def __init__(self,addr,word):
+        super(BranchInstruction,self).__init__(addr,word)
+        if (word>>24)&1:
+            self.mneumonic = 'BL'
+        else:
+            self.mneumonic = 'B'
+        offset = (word&0xffffff)<<2
+        self.args = ['#0x%x' % (addr + offset + 8)]
 
 class MultiDataTransferInstruction(Instruction):
     pass
