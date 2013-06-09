@@ -149,7 +149,10 @@ class MultiDataTransferInstruction(Instruction):
     pass
 
 class SoftwareInterruptInstruction(Instruction):
-    pass
+    mneumonic = 'SWI'
+    def __init__(self,addr,word,cpu):
+        super(SoftwareInterruptInstruction,self).__init__(addr,word,cpu)
+        self.args = ['#0x%x' % (word&0xffffff)]
 
 class CoprocessorDataTransferInstruction(Instruction):
     pass
