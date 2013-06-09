@@ -4,7 +4,7 @@ CFLAGS=-std=c99 -pedantic -Wall -Wshadow -Wpointer-arith -Wcast-qual -Wstrict-pr
 AS=arm-none-eabi-as
 COPY=arm-none-eabi-objcopy
 
-all: armtest armv2.so boot.rom rijndael run
+all: armtest armv2.so boot.rom rijndael
 
 run: armv2.so boot.rom emulate.py debugger.py
 	python emulate.py

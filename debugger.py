@@ -46,10 +46,10 @@ class Debug(View):
         end = min(pos + ((self.height-2)/2)*4,len(self.debugger.cpu.mem))
         print '%x - %x - %x' % (start,pos,end)
         dis = []
-        for (p,b,ins,args) in disassemble.Disassemble(self.debugger.cpu,self.debugger.breakpoints,start,start+(self.height-2)*4):
-            arrow = '==>' if p == self.debugger.cpu.pc else ''
-            bpt   = '*' if p in self.debugger.breakpoints else ' '
-            dis.append( (p,'%3s%s%07x %08x : %s %s' % (arrow,bpt,p,b,ins,args)))
+        for instruction in disassemble.Disassemble(self.debugger.cpu,self.debugger.breakpoints,start,start+(self.height-2)*4):
+            arrow = '==>' if instruction.addr == self.debugger.cpu.pc else ''
+            bpt   = '*' if instruction.addr in self.debugger.breakpoints else ' '
+            dis.append( (instruction.addr,'%3s%s%07x %08x : %s' % (arrow,bpt,instruction.addr,instruction.word,instruction.ToString())))
                 
         self.disassembly = dis
 
