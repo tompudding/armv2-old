@@ -186,6 +186,14 @@ class MultiDataTransferInstruction(Instruction):
             self.mneumonic += 'A'
         rn = registerNames[(word>>16)&0xf] + '!' if word&self.MDT_WRITE_BACK else ''
         self.args = [rn] + RegisterList(word&0xffff)
+        #shorthands for push and pop...
+        if rn == 'sp!':
+            if self.mneumonic == 'LDMIA':
+                self.mneumonic = 'POP'
+                self.args = self.args[1:]
+            elif self.mneumonic == 'STMDB':
+                self.mneumonic = 'PUSH'
+                self.args = self.args[1:]
         
 
 class SoftwareInterruptInstruction(Instruction):

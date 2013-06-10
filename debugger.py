@@ -44,7 +44,7 @@ class Debug(View):
         self.disassembly = []
         start = max(pos-((self.height-2)/2)*4,0)
         end = min(pos + ((self.height-2)/2)*4,len(self.debugger.cpu.mem))
-        print '%x - %x - %x' % (start,pos,end)
+        #print '%x - %x - %x' % (start,pos,end)
         dis = []
         for instruction in disassemble.Disassemble(self.debugger.cpu,self.debugger.breakpoints,start,start+(self.height-2)*4):
             arrow = '==>' if instruction.addr == self.debugger.cpu.pc else ''
@@ -265,7 +265,7 @@ class Debugger(object):
         #If we're at a breakpoint and we've been asked to continue, we step it once and then replace the breakpoint
         if num == 0:
             return None
-        print 'stepping',self.cpu.pc,num, self.cpu.pc in self.breakpoints
+        #print 'stepping',self.cpu.pc,num, self.cpu.pc in self.breakpoints
         if self.cpu.pc in self.breakpoints:
             old_pos = self.cpu.pc
             self.cpu.memw[self.cpu.pc] = self.breakpoints[self.cpu.pc]
