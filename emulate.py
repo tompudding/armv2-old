@@ -14,7 +14,7 @@ class StdOutWrapper:
 
 def main(stdscr):
     curses.use_default_colors()
-    cpu = armv2.Armv2(size = 2**16,
+    cpu = armv2.Armv2(size = 2**21,
                       filename = 'boot.rom')
 
     dbg = debugger.Debugger(cpu,stdscr)

@@ -163,8 +163,6 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
 
-
-
 //instruction handlers
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
 armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction);
@@ -177,5 +175,7 @@ armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t i
 armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
 
+void flog(char* fmt, ...);
+
 //#define LOG(...) printf(__VA_ARGS__)
-#define LOG(...) 
+#define LOG(...) flog(__VA_ARGS__)

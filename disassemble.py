@@ -162,7 +162,7 @@ class BranchInstruction(Instruction):
         else:
             self.mneumonic = 'B'
         offset = (word&0xffffff)<<2
-        self.args = ['#0x%x' % (addr + offset + 8)]
+        self.args = ['#0x%x' % ((addr + offset + 8)&0xffffff)]
 
 class MultiDataTransferInstruction(Instruction):
     MDT_LDM        = 0x00100000

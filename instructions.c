@@ -1,5 +1,6 @@
 #include "armv2.h"
 #include <stdio.h>
+#include <stdarg.h>
 
 #define ALU_TYPE_IMM 0x02000000
 #define MUL_TYPE_MLA 0x00200000
@@ -27,6 +28,22 @@
 #define ALU_SHIFT_ROR  0x3
 
 static uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t *carry);
+
+void flog(char* fmt, ...)
+{
+    static FILE *f = NULL;
+    if(NULL == f) {
+        f = fopen("/tmp/armv2.debug.log","wb");
+        if(NULL == f) {
+            return;
+        }
+    }
+    va_list args;
+    va_start(args,fmt);
+    vfprintf(f,fmt,args);
+    va_end(args);
+    fflush(f);
+}
 
 uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t *carry) {
     uint32_t rm = bits&0xf;
@@ -272,7 +289,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
         }
     }
     
-    LOG("%s r%d %08x %08x\n",__func__,rd,GETREG(cpu,rd),cpu->regs.actual[PC]);
+    //LOG("%s r%d %08x %08x\n",__func__,rd,GETREG(cpu,rd),cpu->regs.actual[PC]);
     return EXCEPT_NONE;
 }
 
@@ -465,7 +482,7 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
     if((instruction>>24&1)) {
         GETREG(cpu,LR) = cpu->pc-4;
     }
-    cpu->pc = cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4; 
+    cpu->pc = (cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4)&0xffffff; 
     //+8 due to the weird prefetch thing, -4 for the hack as we're going to add 4 in the next loop
 
     return EXCEPT_NONE;
@@ -493,7 +510,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     uint32_t write_back_old = 0;
     uint32_t write_back_value = 0;
     uint32_t first_loop = 1;
-    LOG("%s %d %d %d %d %d %d %d %d\n",__func__,rn,!!ldm,!!write_back,!!setflags,!!offset,!!preindex,!!user_bank,num_registers);
+    //LOG("%s %d %d %d %d %d %d %d %d\n",__func__,rn,!!ldm,!!write_back,!!setflags,!!offset,!!preindex,!!user_bank,num_registers);
     if(rn == PC) {
         //psr bits are used, so that's an exception if the flags aren't set, weird
         address = cpu->pc | GETMODEPSR(cpu);
@@ -526,7 +543,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
 
     if(write_back) {
         write_back_old = user_bank ? GETUSERREG(cpu,rn) : GETREG(cpu,rn);
-        LOG("%08x %08x\n",address,write_back_value);
+        //LOG("%08x %08x\n",address,write_back_value);
         if(user_bank) {
             GETUSERREG(cpu,rn) = write_back_value;
         }
@@ -535,6 +552,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         }
     }
     if(retval != EXCEPT_NONE) {
+        //LOG("MDT return 1 %d\n",retval);
         return retval;
     }
     //shitty hack, cancel the increment we're about to do
@@ -551,10 +569,12 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         if(NULL == page) {
             //This is a data abort. Could also check for permission here
             retval = EXCEPT_DATA_ABORT;
+            //LOG("MDT return 2 %d\n",retval);
             continue;
         }
         if(address&0x3) {
             retval = EXCEPT_DATA_ABORT;
+            //LOG("MDT return 3 %d\n",retval);
             continue;
         }
         if(ldm) {
@@ -614,7 +634,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
 
 armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
+    //LOG("%s\n",__func__);
     uint32_t rm   = instruction&0xf;
     uint32_t rd   = (instruction>>12)&0xf;
     uint32_t rn   = (instruction>>16)&0xf;
@@ -684,22 +704,22 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
 armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t type = instruction&0x00ffffff;
-    LOG("%s %x %x %x\n",__func__,type,SWI_BREAKPOINT,type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT);
+    //LOG("%s %x %x %x\n",__func__,type,SWI_BREAKPOINT,type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT);
     return type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT;
 }
 //Not bothering with a coprocessor for now, so these are noops
 armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
+    //LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }
 armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
+    //LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
 {
-    LOG("%s\n",__func__);
+    //LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }

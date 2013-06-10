@@ -59,24 +59,6 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
 
         
         uint32_t instruction = DEREF(cpu,cpu->pc);
-        LOG("%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x : %08x\n",
-            GETREG(cpu,0),
-            GETREG(cpu,1),
-            GETREG(cpu,2),
-            GETREG(cpu,3),
-            GETREG(cpu,4),
-            GETREG(cpu,5),
-            GETREG(cpu,6),
-            GETREG(cpu,7),
-            GETREG(cpu,8),
-            GETREG(cpu,9),
-            GETREG(cpu,10),
-            GETREG(cpu,11),
-            GETREG(cpu,12),
-            GETREG(cpu,13),
-            GETREG(cpu,14),
-            GETREG(cpu,15),
-            instruction);
         switch(CONDITION_BITS(instruction)) {
         case COND_EQ: //Z set
             if(FLAG_SET(cpu,Z)) {
