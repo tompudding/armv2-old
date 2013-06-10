@@ -20,6 +20,25 @@ def OperandShift(self,bits,type_flag):
         #shift is nonzero
         return [rm,shift_type + ' ' + shift]
 
+def RegisterList(bits):
+    runs = []
+    on = None
+    for i in xrange(16):
+        if on == None and (bits>>i)&1:
+            on = i
+        elif on != None and not ((bits>>i)&1):
+            runs.append( (on,i) )
+            on = None
+    if on:
+        runs.append( (on,15) )
+    regs = []
+    for start,end in runs:
+        if end-start <= 2:
+            for r in xrange(start,end):
+                regs.append(registerNames[r])
+        else:
+            regs.append('%s - %s' % (registerNames[start],registerNames[end]))
+    return ['{' + ','.join(regs) + '}']
 
 class Instruction(object):
     conditions = ['EQ','NE','CS','CC',
@@ -146,7 +165,28 @@ class BranchInstruction(Instruction):
         self.args = ['#0x%x' % (addr + offset + 8)]
 
 class MultiDataTransferInstruction(Instruction):
-    pass
+    MDT_LDM        = 0x00100000
+    MDT_WRITE_BACK = 0x00200000
+    MDT_HAT        = 0x00400000
+    MDT_OFFSET_ADD = 0x00800000
+    MDT_PREINDEX   = 0x01000000
+    def __init__(self,addr,word,cpu):
+        super(MultiDataTransferInstruction,self).__init__(addr,word,cpu)
+        if word&self.MDT_LDM:
+            self.mneumonic = 'LDM'
+        else:
+            self.mneumonic = 'STM'
+        if word&self.MDT_OFFSET_ADD:
+            self.mneumonic += 'I'
+        else:
+            self.mneumonic += 'D'
+        if word&self.MDT_PREINDEX:
+            self.mneumonic += 'B'
+        else:
+            self.mneumonic += 'A'
+        rn = registerNames[(word>>16)&0xf] + '!' if word&self.MDT_WRITE_BACK else ''
+        self.args = [rn] + RegisterList(word&0xffff)
+        
 
 class SoftwareInterruptInstruction(Instruction):
     mneumonic = 'SWI'
