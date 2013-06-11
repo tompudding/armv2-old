@@ -413,8 +413,9 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_READ)) {
             return EXCEPT_DATA_ABORT;
         }
-
+        
         value = page->memory[INPAGE(rn_val)>>2];
+        LOG("Have value %08x and %d\n",value,instruction&SDT_LOAD_BYTE);
         if(instruction&SDT_LOAD_BYTE) { 
             value = (value>>((rn_val&3)<<3))&0xff;
         }
@@ -445,7 +446,8 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
             uint32_t rest_mask = ~byte_mask;
-            page->memory[INPAGE(rn_val)>>2] = (page->memory[INPAGE(rn_val)]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
+            LOG("STR at address %08x byte_mask = %08x rest_mask = %08x\n",rn_val,byte_mask,rest_mask);
+            page->memory[INPAGE(rn_val)>>2] = (page->memory[INPAGE(rn_val)>>2]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
         }
         else {
             //must be aligned
