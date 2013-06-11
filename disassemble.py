@@ -139,6 +139,7 @@ class SingleDataTransferInstruction(Instruction):
     SDT_PREINDEX   = 0x01000000
     SDT_LDR        = 0x00100000
     SDT_OFFSET_ADD = 0x00800000
+    SDT_LOAD_BYTE  = 0x00400000
     def __init__(self,addr,word,cpu):
         super(SingleDataTransferInstruction,self).__init__(addr,word,cpu)
         rd = (word>>12)&0xf;
@@ -156,8 +157,10 @@ class SingleDataTransferInstruction(Instruction):
             self.mneumonic = 'LDR'
         else:
             self.mneumonic = 'STR'
+        if word&self.SDT_LOAD_BYTE:
+            self.mneumonic += 'B'
         if word&self.SDT_WRITE_BACK:
-            self.mneumonic += '!'
+            rd += '!'
         
         if rn == 0xf and not word&self.SDT_REGISTER:
             val = cpu.memw[addr+8+offset]
