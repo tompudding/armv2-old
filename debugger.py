@@ -154,8 +154,6 @@ class Help(View):
 class Memdump(View):
     display_width = 16
     key_time = 1
-    masks  = (0xffffff,0x30fffff,0x3f0ffff,0x3ff0fff,0x3fff0ff,0x3ffff0f,0x3fffff0)
-    shifts = (24,20,16,12,8,4,0)
     max = 0x4000000
     def __init__(self,debugger,h,w,y,x):
         super(Memdump,self).__init__(h,w,y,x)
@@ -164,6 +162,8 @@ class Memdump(View):
         self.selected = 0
         self.lastkey  = 0
         self.keypos   = 0
+        self.masks = (0x3fffff0,0x3ffff00,0x3fff000,0x3ff0000,0x3f00000,0x3000000,0)
+        self.newnum   = 0
 
     def Draw(self,draw_border = False):
         self.window.clear()
@@ -217,10 +217,12 @@ class Memdump(View):
             now = time.time()
             if now - self.lastkey > self.key_time:
                 self.keypos = 0
-            if self.keypos == 0:
-                newnum &= 3
+                self.newnum = 0
+            self.newnum <<= 4
+            self.newnum |= newnum
+            self.newnum &= 0x3ffffff
             self.pos &= self.masks[self.keypos]
-            self.pos |= newnum << self.shifts[self.keypos]
+            self.pos |= self.newnum
             self.keypos += 1
             self.lastkey = now
             self.selected = self.pos

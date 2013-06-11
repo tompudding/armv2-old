@@ -480,7 +480,7 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
 {
     LOG("%s\n",__func__);
     if((instruction>>24&1)) {
-        GETREG(cpu,LR) = cpu->pc-4;
+        GETREG(cpu,LR) = cpu->pc+4;
     }
     cpu->pc = (cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4)&0xffffff; 
     //+8 due to the weird prefetch thing, -4 for the hack as we're going to add 4 in the next loop
