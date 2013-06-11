@@ -51,15 +51,31 @@ class Instruction(object):
         self.addr = addr
         self.word = word
     def ToString(self):
-        return '%5s%2s %s' % (self.mneumonic,self.conditions[(self.word>>28)&0xf],', '.join(self.args))
+        mneumonic = self.mneumonic + self.conditions[(self.word>>28)&0xf]
+        return '%7s %s' % (mneumonic.ljust(7),', '.join(self.args))
 
 class ALUInstruction(Instruction):
     opcodes = ['AND','EOR','SUB','RSB',
                'ADD','ADC','SBC','RSC',
                'TST','TEQ','CMP','CMN',
                'ORR','MOV','BIC','MVN']
-    MOV = 0xd
-    MVN = 0xf
+    class OpCodes:
+        AND = 0x0
+        EOR = 0x1
+        SUB = 0x2
+        RSB = 0x3
+        ADD = 0x4
+        ADC = 0x5
+        SBC = 0x6
+        RSC = 0x7
+        TST = 0x8
+        TEQ = 0x9
+        CMP = 0xa
+        CMN = 0xb
+        ORR = 0xc
+        MOV = 0xd
+        BIC = 0xe
+        MVN = 0xf
     ALU_TYPE_IMM = 0x02000000
     def __init__(self,addr,word,cpu):
         super(ALUInstruction,self).__init__(addr,word,cpu)
@@ -78,10 +94,16 @@ class ALUInstruction(Instruction):
             op2 = ['#0x%x' % val]
         else:
             op2 = OperandShift(addr,word&0xfff,word&0x10)
-        if opcode in [self.MOV,self.MVN]:
+        if opcode in [self.OpCodes.MOV,self.OpCodes.MVN]:
             self.args = [rd] + op2
         else:
             self.args = [rd,op1] + op2
+        if opcode in [self.OpCodes.TST,
+                      self.OpCodes.TEQ,
+                      self.OpCodes.CMP,
+                      self.OpCodes.CMN]:
+            #These don't set rd
+            self.args = self.args[1:]
 
 class MultiplyInstruction(Instruction):
     MUL_TYPE_MLA = 0x00200000
