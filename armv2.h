@@ -32,7 +32,10 @@
 #define PAGE_MASK            (PAGE_SIZE-1)
 #define NUM_PAGE_TABLES      (1<<(26 - PAGE_SIZE_BITS))
 #define WORDS_PER_PAGE       (1<<(PAGE_SIZE_BITS-2))
-#define MAX_MEMORY           (1<<26)
+//Max memory is 64MB - 1 page. The final page is special and is used for interrupt handlers
+#define MAX_MEMORY           ((1<<26) - PAGE_SIZE)
+#define HW_DEVICES_MAX       (64)
+#define INTERRUPT_PAGE_NUM   (NUM_PAGE_TABLES-1)
 
 #define PAGEOF(addr)         ((addr)>>PAGE_SIZE_BITS)
 #define INPAGE(addr)         ((addr)&PAGE_MASK)
@@ -97,6 +100,7 @@
 #define MODE_SUP 3
 
 #define FLAG_INIT 1
+#define CPU_INITIALISED(cpu) ( (((cpu)->flags)&FLAG_INIT) )
 
 typedef enum {
     EXCEPT_RST                   = 0,
@@ -120,35 +124,45 @@ typedef struct {
 } exception_handler_t;
 
 typedef enum {
-    ARMV2STATUS_OK = 0,
-    ARMV2STATUS_INVALID_CPUSTATE,
-    ARMV2STATUS_MEMORY_ERROR,
-    ARMV2STATUS_VALUE_ERROR,
-    ARMV2STATUS_IO_ERROR,
-    ARMV2STATUS_BREAKPOINT
+    ARMV2STATUS_OK = 0           ,
+    ARMV2STATUS_INVALID_CPUSTATE ,
+    ARMV2STATUS_MEMORY_ERROR     ,
+    ARMV2STATUS_VALUE_ERROR      ,
+    ARMV2STATUS_IO_ERROR         ,
+    ARMV2STATUS_BREAKPOINT       ,
+    ARMV2STATUS_INVALID_ARGS     ,
+    ARMV2STATUS_MAX_HW
 } armv2status_t;
 
 typedef struct {
-    uint32_t actual[NUMREGS];
+    uint32_t  actual[NUMREGS];
     uint32_t *effective[NUM_EFFECTIVE_REGS];
 } regs_t;
 
-typedef void (*access_callback_t)(uint32_t);
+typedef void (*access_callback_t)(uint32_t addr, uint32_t value);
 
 typedef struct {
-    uint32_t *memory;
-    access_callback_t read_callback;
-    access_callback_t write_callback;
-    uint32_t flags;
+    uint32_t          *memory;
+    access_callback_t  read_callback;
+    access_callback_t  write_callback;
+    uint32_t           flags;
 } page_info_t;
 
 typedef struct {
-    regs_t regs; //storage for all the registers
-    
-    uint32_t *physical_ram;
-    uint32_t physical_ram_size;
-    page_info_t *page_tables[NUM_PAGE_TABLES];
-    exception_handler_t exception_handlers[EXCEPT_MAX];
+    uint32_t device_id;
+    uint32_t interrupt_flag_addr;
+    access_callback_t read_callback;
+    access_callback_t write_callback;
+} hardware_device_t;
+
+typedef struct {
+    regs_t               regs;  //storage for all the registers
+    uint32_t            *physical_ram;
+    uint32_t             physical_ram_size;
+    uint32_t             num_hardware_devices;
+    page_info_t         *page_tables[NUM_PAGE_TABLES];
+    exception_handler_t  exception_handlers[EXCEPT_MAX];
+    hardware_device_t    hardware_devices[HW_DEVICES_MAX];
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it
@@ -162,6 +176,11 @@ armv2status_t init(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
+armv2status_t add_hardware(armv2_t           *cpu          ,
+                           uint32_t          device_id     ,
+                           hardware_device_t **device      ,
+                           access_callback_t read_callback ,
+                           access_callback_t write_callback);
 
 //instruction handlers
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
@@ -174,6 +193,16 @@ armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t i
 armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction);
 armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
+
+#define COPROCESSOR_HW_MANAGER (1)
+#define COPROCESSOR_MMU        (2)
+
+typedef armv2status_t (*coprocessor_data_operation)(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+
+armv2status_t HwManagerDataOperation   (uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+//armv2status_t HwManagerRegisterTransfer(uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn);
+
+armv2status_t MmuDataOperation         (uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
 
 void flog(char* fmt, ...);
 

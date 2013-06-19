@@ -15,8 +15,8 @@ armv2.so: libarmv2.a armv2.pyx carmv2.pxd
 armtest: armtest.c libarmv2.a
 	${CC} ${CFLAGS} -o $@ $^
 
-libarmv2.a: step.o instructions.o init.o armv2.h
-	${AR} rcs $@ step.o instructions.o init.o
+libarmv2.a: step.o instructions.o init.o armv2.h mmu.o hw_manager.o
+	${AR} rcs $@ step.o instructions.o init.o mmu.o hw_manager.o
 
 boot.rom: boot.S rijndael
 	${AS} -march=armv2a -mapcs-26 -o boot.o $<
@@ -26,6 +26,9 @@ boot.rom: boot.S rijndael
 rijndael: encrypt.c rijndael-alg-fst.c rijndael-alg-fst.h
 	arm-none-eabi-gcc -march=armv2a -static -Wa,-mapcs-26 -mno-thumb-interwork -marm -o $@ $^ 
 
+rijndael_test: encrypt_test.c rijndael-alg-fst.c rijndael-alg-fst.h
+	gcc -o $@ $^
+
 clean:
-	rm -f armv2 rijndael boot.rom armtest step.o instructions.o init.o armv2.c armv2.so *~ libarmv2.a boot.bin boot.o
+	rm -f armv2 rijndael boot.rom armtest step.o instructions.o init.o armv2.c armv2.so *~ libarmv2.a boot.bin boot.o mmu.o hw_manager.o
 	python setup.py clean

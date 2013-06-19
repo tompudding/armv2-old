@@ -712,16 +712,36 @@ armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t i
 //Not bothering with a coprocessor for now, so these are noops
 armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
 {
-    //LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }
 armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction)
 {
-    //LOG("%s\n",__func__);
     return EXCEPT_NONE;
 }
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
 {
-    //LOG("%s\n",__func__);
+    uint32_t crm      = (instruction>> 0)&0xf;
+    uint32_t aux      = (instruction>> 5)&0x7;
+    uint32_t proc_num = (instruction>> 8)&0xf;
+    uint32_t crd      = (instruction>>12)&0xf;
+    uint32_t crn      = (instruction>>16)&0xf;
+    uint32_t opcode   = (instruction>>20)&0xf;
+    coprocessor_data_operation handler = NULL;
+
+    switch(proc_num) {
+    case COPROCESSOR_HW_MANAGER:
+        handler = HwManagerDataOperation;
+        break;
+    case COPROCESSOR_MMU:
+        handler = MmuDataOperation;
+        break;
+    default:
+        handler = NULL;
+        break;
+    }
+    if(handler) {
+        (void) handler(crm,aux,crd,crn,opcode);
+    }
+    
     return EXCEPT_NONE;
 }

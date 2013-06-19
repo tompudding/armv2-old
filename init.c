@@ -31,7 +31,8 @@ armv2status_t init(armv2_t *cpu, uint32_t memsize) {
         return ARMV2STATUS_VALUE_ERROR;
     }
     memset(cpu,0,sizeof(armv2_t));
-    cpu->physical_ram = malloc(memsize);
+    //Add a page to the physical RAM for the interrupt page
+    cpu->physical_ram = malloc(memsize + PAGE_SIZE);
     if(NULL == cpu->physical_ram) {
         cpu->physical_ram = NULL;
         return ARMV2STATUS_MEMORY_ERROR;
@@ -57,7 +58,14 @@ armv2status_t init(armv2_t *cpu, uint32_t memsize) {
             //the first page is never writable, we'll put the boot rom there.
             page_info->flags &= (~PERM_WRITE);
         }
-        cpu->page_tables[i] = page_info;
+        if(i == num_pages) {
+            //this is the magic interrupt status page and it goes at the end
+            page_info->flags &= (~PERM_WRITE);
+            cpu->page_tables[INTERRUPT_PAGE_NUM] = page_info;
+        }
+        else {
+            cpu->page_tables[i] = page_info;
+        }
     }
 
     cpu->flags = FLAG_INIT;
@@ -156,4 +164,24 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename) {
 close_file:
     fclose(f);
     return retval;
+}
+
+armv2status_t add_hardware(armv2_t           *cpu          ,
+                           uint32_t          device_id     ,
+                           hardware_device_t **device      ,
+                           access_callback_t read_callback ,
+                           access_callback_t write_callback) {
+    if(NULL == cpu || NULL == device || !CPU_INITIALISED(cpu)) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    if(cpu->num_hardware_devices >= HW_DEVICES_MAX) {
+        return ARMV2STATUS_MAX_HW;
+    }
+    //There's space, so let's add it
+    (*device)                 = cpu->hardware_devices + cpu->num_hardware_devices++;
+    (*device)->device_id      = device_id;
+    (*device)->read_callback  = read_callback;
+    (*device)->write_callback = write_callback;
+
+    return ARMV2STATUS_OK;
 }
