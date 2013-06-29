@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "hw_manager.h"
+#include "common.h"
 
 #define FP 12
 #define SP 13
@@ -123,17 +125,6 @@ typedef struct {
     uint32_t save_reg;
 } exception_handler_t;
 
-typedef enum {
-    ARMV2STATUS_OK = 0           ,
-    ARMV2STATUS_INVALID_CPUSTATE ,
-    ARMV2STATUS_MEMORY_ERROR     ,
-    ARMV2STATUS_VALUE_ERROR      ,
-    ARMV2STATUS_IO_ERROR         ,
-    ARMV2STATUS_BREAKPOINT       ,
-    ARMV2STATUS_INVALID_ARGS     ,
-    ARMV2STATUS_MAX_HW
-} armv2status_t;
-
 typedef struct {
     uint32_t  actual[NUMREGS];
     uint32_t *effective[NUM_EFFECTIVE_REGS];
@@ -163,6 +154,7 @@ typedef struct {
     page_info_t         *page_tables[NUM_PAGE_TABLES];
     exception_handler_t  exception_handlers[EXCEPT_MAX];
     hardware_device_t    hardware_devices[HW_DEVICES_MAX];
+    hw_manager_t         hardware_manager;
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it
@@ -197,12 +189,13 @@ armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t i
 #define COPROCESSOR_HW_MANAGER (1)
 #define COPROCESSOR_MMU        (2)
 
-typedef armv2status_t (*coprocessor_data_operation)(uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+typedef armv2status_t (*coprocessor_data_operation_t)(armv2_t*,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 
-armv2status_t HwManagerDataOperation   (uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
-//armv2status_t HwManagerRegisterTransfer(uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn);
+armv2status_t HwManagerDataOperation   (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+armv2status_t HwManagerRegisterTransfer(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
 
-armv2status_t MmuDataOperation         (uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+armv2status_t MmuDataOperation         (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+armv2status_t MmuRegisterTransfer      (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
 
 void flog(char* fmt, ...);
 
