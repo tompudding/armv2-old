@@ -2,16 +2,16 @@
 #include "hw_manager.h"
 #include "common.h"
 
-#define FP 12
-#define SP 13
-#define LR 14
-#define PC 15
-#define SP_S 16
-#define LR_S 17
-#define SP_I 18
-#define LR_I 19
-#define R8_F 20
-#define R9_F 21
+#define FP    12
+#define SP    13
+#define LR    14
+#define PC    15
+#define SP_S  16
+#define LR_S  17
+#define SP_I  18
+#define LR_I  19
+#define R8_F  20
+#define R9_F  21
 #define R10_F 22
 #define R11_F 23
 #define FP_F  24
@@ -50,6 +50,7 @@
 #define SETMODE(cpu,newmode) ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0xfffffffc) | (newmode)))
 #define GETMODE(cpu)         ((cpu)->regs.actual[PC]&0x3)
 #define GETPSR(cpu)          ((cpu)->regs.actual[PC]&0xfc000000)
+#define SETPSR(cpu,newpsr)   ((cpu)->regs.actual[PC] = (((cpu)->regs.actual[PC]&0x03ffffff) | (newpsr)))
 #define GETMODEPSR(cpu)      ((cpu)->regs.actual[PC]&0xfc000003)
 #define SETFLAG(cpu,flag)    ((cpu)->regs.actual[PC] |= FLAG_##flag)
 

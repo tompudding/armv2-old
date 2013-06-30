@@ -723,6 +723,7 @@ armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t i
     uint32_t crn      = (instruction>>16)&0xf;
     uint32_t opcode   = (instruction>>20)&0xf;
     coprocessor_data_operation_t handler = NULL;
+
     switch(proc_num) {
     case COPROCESSOR_HW_MANAGER:
         handler = HwManagerRegisterTransfer;
@@ -737,7 +738,7 @@ armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t i
     if(handler) {
         (void) handler(cpu,crm,aux,crd,crn,opcode);
     }
-    return ARMV2STATUS_OK;
+    return EXCEPT_NONE;
 }
 armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
 {
