@@ -231,7 +231,19 @@ class CoprocessorDataTransferInstruction(Instruction):
     pass
 
 class CoprocessorRegisterTransferInstruction(Instruction):
-    pass
+    mneumonic = 'MRC'
+    def __init__(self,addr,word,cpu):
+        super(CoprocessorRegisterTransferInstruction,self).__init__(addr,word,cpu)
+        crm      = (word>> 0)&0xf
+        aux      = (word>> 5)&0xf
+        proc_num = (word>> 8)&0xf
+        crd      = (word>>12)&0xf
+        crn      = (word>>16)&0xf
+        opcode   = (word>>20)&0xf
+        if opcode&1:
+            mneumonic = 'MCR'
+        self.args = ['%x' % proc_num,'#%x' % opcode] + [('CR%d') % n for n in crd,crn,crm]
+        
 
 class CoprocessorDataOperationInstruction(Instruction):
     pass
