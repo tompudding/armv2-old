@@ -1,0 +1,17 @@
+#ifndef __ARMV2_COMMON_H__
+#define __ARMV2_COMMON_H__
+
+typedef enum {
+    ARMV2STATUS_OK = 0           ,
+    ARMV2STATUS_INVALID_CPUSTATE ,
+    ARMV2STATUS_MEMORY_ERROR     ,
+    ARMV2STATUS_VALUE_ERROR      ,
+    ARMV2STATUS_IO_ERROR         ,
+    ARMV2STATUS_BREAKPOINT       ,
+    ARMV2STATUS_INVALID_ARGS     ,
+    ARMV2STATUS_MAX_HW           ,
+    ARMV2STATUS_UNKNOWN_OPCODE   ,
+    ARMV2STATUS_UNIVERSE_BROKEN  ,
+} armv2status_t;
+
+#endif
