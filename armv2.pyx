@@ -164,12 +164,16 @@ cdef class Device:
     def __init__(self):
         self.attached_cpu = []
 
+    cdef carmv2.hardware_device_t *GetDevice(self):
+        return self.cdevice
+
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
     cdef public regs
     cdef public mem
     cdef public memw
     cdef public memsize
+    cdef public hardware
 
     def __cinit__(self, *args, **kwargs):
         self.cpu = <carmv2.armv2_t*>malloc(sizeof(carmv2.armv2_t))
@@ -245,6 +249,7 @@ cdef class Armv2:
         self.memsize = size
         self.mem  = ByteMemory(self)
         self.memw = WordMemory(self)
+        self.hardware = []
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError()
         if filename != None:
@@ -260,9 +265,9 @@ cdef class Armv2:
         #right now can only return OK or BREAKPOINT, but we don't care either way...
         return result
 
-    def AddHardware(self,device):
-        cdef carmv2.hardware_device_t *jim = <carmv2.hardware_device_t*>(device.cdevice)
-        result = carmv2.add_hardware(self.cpu,<carmv2.hardware_device_t*>(device.cdevice))
+    def AddHardware(self,Device device):
+        result = carmv2.add_hardware(self.cpu,device.cdevice)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError
+        self.hardware.append(device)
 

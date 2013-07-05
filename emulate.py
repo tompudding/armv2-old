@@ -2,6 +2,7 @@ import armv2
 import binascii
 import debugger
 import sys
+import hardware
 
 class StdOutWrapper:
     text = []
@@ -16,6 +17,7 @@ def main(stdscr):
     curses.use_default_colors()
     cpu = armv2.Armv2(size = 2**21,
                       filename = 'boot.rom')
+    cpu.AddHardware(hardware.Keyboard())
 
     dbg = debugger.Debugger(cpu,stdscr)
     dbg.Run()
