@@ -90,7 +90,14 @@ cdef extern from "armv2.h":
         uint32_t flags
         uint32_t pins
 
+    ctypedef struct hardware_device_t:
+        uint32_t device_id
+        uint32_t interrupt_flag_addr
+        access_callback_t read_callback
+        access_callback_t write_callback
+
     armv2status_t init(armv2_t *cpu, uint32_t memsize)
     armv2status_t load_rom(armv2_t *cpu, const char *filename)
     armv2status_t cleanup_armv2(armv2_t *cpu)
     armv2status_t run_armv2(armv2_t *cpu, int32_t instructions)
+    armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device)

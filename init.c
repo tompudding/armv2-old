@@ -166,11 +166,7 @@ close_file:
     return retval;
 }
 
-armv2status_t add_hardware(armv2_t           *cpu          ,
-                           uint32_t          device_id     ,
-                           hardware_device_t **device      ,
-                           access_callback_t read_callback ,
-                           access_callback_t write_callback) {
+armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device) {
     if(NULL == cpu || NULL == device || !CPU_INITIALISED(cpu)) {
         return ARMV2STATUS_INVALID_ARGS;
     }
@@ -178,10 +174,8 @@ armv2status_t add_hardware(armv2_t           *cpu          ,
         return ARMV2STATUS_MAX_HW;
     }
     //There's space, so let's add it
-    (*device)                 = cpu->hardware_devices + cpu->num_hardware_devices++;
-    (*device)->device_id      = device_id;
-    (*device)->read_callback  = read_callback;
-    (*device)->write_callback = write_callback;
+    cpu->hardware_devices[cpu->num_hardware_devices++] = device;
+    //initialise the interrupt address herre
 
     return ARMV2STATUS_OK;
 }

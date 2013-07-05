@@ -145,6 +145,25 @@ class WordMemory(object):
     def __len__(self):
         return MAX_26BIT>>2
 
+
+cdef class Device:
+    id = None
+    cdef carmv2.hardware_device_t *cdevice
+    
+    def __cinit__(self, *args, **kwargs):
+        self.cdevice = <carmv2.hardware_device_t*>malloc(sizeof(carmv2.hardware_device_t))
+        if self.cdevice == NULL:
+            raise MemoryError()
+
+    def __dealloc__(self):
+        if self.cdevice != NULL:
+            for cpu in self.attached_cpu:
+                cpu.RemoveDevice(self)
+            free(self.cdevice)
+
+    def __init__(self):
+        self.attached_cpu = []
+
 cdef class Armv2:
     cdef carmv2.armv2_t *cpu
     cdef public regs
@@ -240,4 +259,10 @@ cdef class Armv2:
         cdef uint32_t result = carmv2.run_armv2(self.cpu,-1 if number == None else number)
         #right now can only return OK or BREAKPOINT, but we don't care either way...
         return result
+
+    def AddHardware(self,device):
+        cdef carmv2.hardware_device_t *jim = <carmv2.hardware_device_t*>(device.cdevice)
+        result = carmv2.add_hardware(self.cpu,<carmv2.hardware_device_t*>(device.cdevice))
+        if result != carmv2.ARMV2STATUS_OK:
+            raise ValueError
 

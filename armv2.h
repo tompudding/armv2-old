@@ -154,7 +154,7 @@ typedef struct {
     uint32_t             num_hardware_devices;
     page_info_t         *page_tables[NUM_PAGE_TABLES];
     exception_handler_t  exception_handlers[EXCEPT_MAX];
-    hardware_device_t    hardware_devices[HW_DEVICES_MAX];
+    hardware_device_t   *hardware_devices[HW_DEVICES_MAX];
     hw_manager_t         hardware_manager;
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
@@ -169,11 +169,7 @@ armv2status_t init(armv2_t *cpu, uint32_t memsize);
 armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
-armv2status_t add_hardware(armv2_t           *cpu          ,
-                           uint32_t          device_id     ,
-                           hardware_device_t **device      ,
-                           access_callback_t read_callback ,
-                           access_callback_t write_callback);
+armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device);
 
 //instruction handlers
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
