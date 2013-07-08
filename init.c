@@ -179,3 +179,13 @@ armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device) {
 
     return ARMV2STATUS_OK;
 }
+
+armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint32_t end) {
+    if(NULL == cpu || end <= start) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    if(device_num >= cpu->num_hardware_devices) {
+        return ARMV2STATUS_NO_SUCH_DEVICE;
+    }
+    
+}

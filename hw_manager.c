@@ -4,7 +4,11 @@
 #include "hw_manager.h"
 
 armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode) {
-    if(NULL == cpu || crd >= HW_MANAGER_NUMREGS) {
+    if(NULL == cpu               || 
+       crd >= HW_MANAGER_NUMREGS ||
+       crm >= HW_MANAGER_NUMREGS ||
+       crn >= HW_MANAGER_NUMREGS ||
+       aux >= HW_MANAGER_NUMREGS) {
         return ARMV2STATUS_INVALID_ARGS;
     }
     switch((hw_manager_opcode_t)opcode) {
@@ -12,6 +16,18 @@ armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, u
         /* put the current number of devices in to cr0 */
         cpu->hardware_manager.regs[crd] = cpu->num_hardware_devices;
         return ARMV2STATUS_OK;
+    case MAP_MEMORY:
+        /* Assign hardware device stored in crd the memory from crm up to crn. Store error code in aux */
+        uint32_t device_num = cpu->hardware_manager.regs[crd];
+        uint32_t mem_start  = cpu->hardware_manager.regs[crm];
+        uint32_t mem_end    = cpu->hardware_manager.regs[crn];
+        if(device_num >= cpu->num_hardware_devices) {
+            cpu->hardware_manager.regs[aux] = MAP_MEMORY_ERROR_NO_SUCH_DEVICE;
+            return ARMV2STATUS_OK;
+        }
+        result = map_memory(cpu,device_num,mem_start,mem_end);
+        //FIXME: set aux here on error
+        return result;
     default:
         return ARMV2STATUS_UNKNOWN_OPCODE;
     }

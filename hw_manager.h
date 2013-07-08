@@ -3,6 +3,8 @@
 
 #include "common.h"
 #define HW_MANAGER_NUMREGS 4
+#define MAP_MEMORY_ERROR_OK 0
+#define MAP_MEMORY_ERROR_NO_SUCH_DEVICE 1
 
 typedef struct {
     uint32_t regs[HW_MANAGER_NUMREGS];
@@ -10,6 +12,7 @@ typedef struct {
 
 typedef enum {
     NUM_DEVICES = 0,
+    MAP_MEMORY  = 1,
 } hw_manager_opcode_t;
 
 typedef enum {
