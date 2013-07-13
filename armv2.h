@@ -147,6 +147,14 @@ typedef struct {
     access_callback_t write_callback;
 } hardware_device_t;
 
+typedef struct _hardware_mapping_t {
+    hardware_device_t *device;
+    struct _hardware_mapping_t *next;
+    uint32_t start;
+    uint32_t end;
+    uint32_t flags;
+} hardware_mapping_t;
+
 typedef struct {
     regs_t               regs;  //storage for all the registers
     uint32_t            *physical_ram;
@@ -156,6 +164,7 @@ typedef struct {
     exception_handler_t  exception_handlers[EXCEPT_MAX];
     hardware_device_t   *hardware_devices[HW_DEVICES_MAX];
     hw_manager_t         hardware_manager;
+    hardware_mapping_t  *hw_mappings;
     //the pc is broken out for efficiency, when needed accessed r15 is updated from them
     uint32_t pc;
     //the flags are about the processor(like initialised), not part of it
@@ -170,6 +179,8 @@ armv2status_t load_rom(armv2_t *cpu, const char *filename);
 armv2status_t cleanup_armv2(armv2_t *cpu);
 armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
 armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device);
+armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint32_t end);
+armv2status_t add_mapping(hardware_mapping_t **head, hardware_mapping_t *item);
 
 //instruction handlers
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);

@@ -11,8 +11,9 @@ typedef struct {
 } hw_manager_t;
 
 typedef enum {
-    NUM_DEVICES = 0,
-    MAP_MEMORY  = 1,
+    NUM_DEVICES   = 0,
+    MAP_MEMORY    = 1,
+    GET_DEVICE_ID = 2,
 } hw_manager_opcode_t;
 
 typedef enum {

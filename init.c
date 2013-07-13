@@ -181,11 +181,64 @@ armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device) {
 }
 
 armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint32_t end) {
+    uint32_t page_pos    = 0;
+    uint32_t page_start  = PAGEOF(start);
+    uint32_t page_end    = PAGEOF(end);
+    hardware_mapping_t hw_mapping = {0};
     if(NULL == cpu || end <= start) {
         return ARMV2STATUS_INVALID_ARGS;
     }
     if(device_num >= cpu->num_hardware_devices) {
         return ARMV2STATUS_NO_SUCH_DEVICE;
     }
-    
+    if(NULL == cpu->hardware_devices[device_num]) {
+        return ARMV2STATUS_INVALID_CPUSTATE;
+    }
+    if(page_start == 0                  ||
+       page_end == 0                    ||
+       page_start >= NUM_PAGE_TABLES    ||
+       page_end >= NUM_PAGE_TABLES      ||
+       page_start == INTERRUPT_PAGE_NUM ||
+       page_end == INTERRUPT_PAGE_NUM ) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    //First we need to know if all of the requested memory is available for mapping. That means
+    //it must not have been mapped already, and it may not be the zero page, nor the IRQ page
+    for(page_pos = page_start; page_pos <= page_end; page_pos++) {
+        page_info_t *page;
+        if(page_pos >= NUM_PAGE_TABLES || page_pos == INTERRUPT_PAGE_NUM) {
+            return ARMV2STATUS_MEMORY_ERROR;
+        }
+        page = cpu->page_tables[page_pos];
+        if(page == NULL) {
+            return ARMV2STATUS_MEMORY_ERROR;
+        }
+        if(page->read_callback || page->write_callback) {
+            return ARMV2STATUS_ALREADY_MAPPED;
+        }
+    }
+    hw_mapping.device = cpu->hardware_devices[device_num];
+    //If we get here then the entire range is free, so we can go ahead and fill it in
+    for(page_pos = page_start; page_pos <= page_end; page_pos++) {
+        page_info_t *page    = cpu->page_tables[page_pos];
+        //Already checked everything's OK, and we're single threaded, so this should be ok I think...
+        page->read_callback  = hw_mapping.device->read_callback;
+        page->write_callback = hw_mapping.device->write_callback;
+    }
+
+    hw_mapping.start = start;
+    hw_mapping.end   = end;
+    hw_mapping.flags = 0; //maybe use these later
+    add_mapping(&(cpu->hw_mappings),&hw_mapping);
+
+    return ARMV2STATUS_OK;
+}
+
+armv2status_t add_mapping(hardware_mapping_t **head,hardware_mapping_t *item) {
+    if(NULL == head) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    item->next = *head;
+    *head = item;
+    return ARMV2STATUS_OK;
 }
