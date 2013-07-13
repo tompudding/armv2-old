@@ -153,6 +153,8 @@ cdef class Device:
     def __cinit__(self, *args, **kwargs):
         self.cdevice = <carmv2.hardware_device_t*>malloc(sizeof(carmv2.hardware_device_t))
         self.cdevice.device_id = self.id
+        self.cdevice.read_callback = NULL;
+        self.cdevice.write_callback = NULL;
         if self.cdevice == NULL:
             raise MemoryError()
 

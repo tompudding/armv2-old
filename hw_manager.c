@@ -20,8 +20,8 @@ armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, u
         /* Assign hardware device stored in crd the memory from crm up to crn. Store error code in aux */
         {
             uint32_t device_num  = cpu->hardware_manager.regs[crd];
-            uint32_t mem_start   = cpu->hardware_manager.regs[crm];
-            uint32_t mem_end     = cpu->hardware_manager.regs[crn];
+            uint32_t mem_start   = cpu->hardware_manager.regs[crn];
+            uint32_t mem_end     = cpu->hardware_manager.regs[crm];
             armv2status_t result = map_memory(cpu,device_num,mem_start,mem_end);
             //FIXME: set aux here on error
             return result;

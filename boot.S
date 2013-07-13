@@ -7,6 +7,8 @@ device_id_opcode    = 2
 mov_register_opcode = 0
 hw_manager          = 1
 keyboard_device_id  = 0x41414141
+keyboard_map_start  = 0x01000000
+keyboard_map_end    = 0x01001000
 
 /* Stack offsets */
 keyboard_device_num = 4
@@ -53,6 +55,15 @@ hw_id_loop:
         BNE hw_id_loop
         /*found the keyboard, nice!*/
         STR R1,[SP,#keyboard_device_num]
+        /* put the hw_device_num into cr0 */
+        MCR 1,#mov_register_opcode,R1,CR0,CR0
+        /* put the start value into cr1 */
+        LDR R2,=keyboard_map_start
+        LDR R3,=keyboard_map_end
+        MCR 1,#mov_register_opcode,R2,CR1,CR0
+        MCR 1,#mov_register_opcode,R3,CR2,CR0
+        /* Perform the map operation! */
+        CDP 1,#map_memory_opcode,CR0,CR1,CR2
 hw_loop_done:   
         
         /* Set CR1 to be the start value */
