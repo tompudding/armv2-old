@@ -158,12 +158,14 @@ cdef class Device:
 
     def __dealloc__(self):
         if self.cdevice != NULL:
-            for cpu in self.attached_cpu:
-                cpu.RemoveDevice(self)
             free(self.cdevice)
 
     def __init__(self):
         self.attached_cpu = []
+
+    def __del__(self):
+        for cpu in self.attached_cpu:
+            cpu.RemoveDevice(self)
 
     cdef carmv2.hardware_device_t *GetDevice(self):
         return self.cdevice
