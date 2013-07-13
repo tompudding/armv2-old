@@ -46,7 +46,7 @@ hw_loop_done:
         
         /* Set CR1 to be the start value */
         /* Set CR2 to be the end value */
-        /* Instruct 
+        /* Instruct */
         MOV SP,#0x100000
         SUB SP,SP,#4
         LDR R0,=0x80ac
