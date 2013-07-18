@@ -146,17 +146,30 @@ class WordMemory(object):
         return MAX_26BIT>>2
 
 
+#cdef void readCallback(void *device,uint32_t addr, uint32_t value):
+    
+
 cdef class Device:
-    id = None
+    id            = None
+    readCallback  = None
+    writeCallback = None
     cdef carmv2.hardware_device_t *cdevice
     
     def __cinit__(self, *args, **kwargs):
         self.cdevice = <carmv2.hardware_device_t*>malloc(sizeof(carmv2.hardware_device_t))
         self.cdevice.device_id = self.id
-        self.cdevice.read_callback = NULL;
+        self.cdevice.read_callback = <carmv2.access_callback_t>self.read;
         self.cdevice.write_callback = NULL;
         if self.cdevice == NULL:
             raise MemoryError()
+
+    cdef void read(self,uint32_t addr, uint32_t value):
+        if self.readCallback:
+            self.readCallback(addr,value)
+
+    cdef void write(self,uint32_t addr, uint32_t value):
+        if self.writeCallback:
+            self.writeCallback(addr,value)
 
     def __dealloc__(self):
         if self.cdevice != NULL:
