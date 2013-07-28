@@ -131,10 +131,11 @@ typedef struct {
     uint32_t *effective[NUM_EFFECTIVE_REGS];
 } regs_t;
 
-typedef void (*access_callback_t)(void *device, uint32_t addr, uint32_t value);
+typedef uint32_t (*access_callback_t)(void *device, uint32_t addr, uint32_t value);
 
 typedef struct {
     uint32_t          *memory;
+    void              *mapped_device;
     access_callback_t  read_callback;
     access_callback_t  write_callback;
     uint32_t           flags;
@@ -145,6 +146,7 @@ typedef struct {
     uint32_t interrupt_flag_addr;
     access_callback_t read_callback;
     access_callback_t write_callback;
+    void *extra;
 } hardware_device_t;
 
 typedef struct _hardware_mapping_t {

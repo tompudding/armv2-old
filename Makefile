@@ -30,5 +30,5 @@ rijndael_test: encrypt_test.c rijndael-alg-fst.c rijndael-alg-fst.h
 	gcc -o $@ $^
 
 clean:
-	rm -f armv2 rijndael boot.rom armtest step.o instructions.o init.o armv2.c armv2.so *~ libarmv2.a boot.bin boot.o mmu.o hw_manager.o
+	rm -f armv2 rijndael boot.rom armtest step.o instructions.o init.o armv2.c armv2.so *~ libarmv2.a boot.bin boot.o mmu.o hw_manager.o *.pyc
 	python setup.py clean

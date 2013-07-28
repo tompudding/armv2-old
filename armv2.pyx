@@ -163,13 +163,15 @@ cdef class Device:
         if self.cdevice == NULL:
             raise MemoryError()
 
-    cdef void read(self,uint32_t addr, uint32_t value):
+    cdef uint32_t read(self,uint32_t addr, uint32_t value) with gil:
+        with open('/tmp/xxx.bin','wb') as f:
+            f.write(str(type(self)) + '\n' + str(self.readCallback))
         if self.readCallback:
-            self.readCallback(addr,value)
+            return self.readCallback(addr,value)
 
-    cdef void write(self,uint32_t addr, uint32_t value):
+    cdef uint32_t write(self,uint32_t addr, uint32_t value) with gil:
         if self.writeCallback:
-            self.writeCallback(addr,value)
+            return self.writeCallback(addr,value)
 
     def __dealloc__(self):
         if self.cdevice != NULL:
@@ -284,6 +286,7 @@ cdef class Armv2:
         return result
 
     def AddHardware(self,Device device):
+        device.cdevice.extra = <void*>device
         result = carmv2.add_hardware(self.cpu,device.cdevice)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError

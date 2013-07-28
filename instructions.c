@@ -397,6 +397,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         //The address bus is 26 bits so this is a address exception
         return EXCEPT_ADDRESS;
     }
+    LOG("x %x\n",PAGEOF(rn_val));
     page = cpu->page_tables[PAGEOF(rn_val)];
     if(NULL == page) {
         //This is a data abort. Could also check for permission here
@@ -414,7 +415,15 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             return EXCEPT_DATA_ABORT;
         }
         
-        value = page->memory[INPAGE(rn_val)>>2];
+        LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
+        if(page->read_callback) {
+            LOG("rc %p %08x jim!\n",page->mapped_device,INPAGE(rn_val));
+            value = page->read_callback(page->mapped_device,INPAGE(rn_val),0);
+        }
+        else {
+            LOG("no rc jim!\n");
+            value = page->memory[INPAGE(rn_val)>>2];
+        }
         LOG("Have value %08x and %d\n",value,instruction&SDT_LOAD_BYTE);
         if(instruction&SDT_LOAD_BYTE) { 
             value = (value>>((rn_val&3)<<3))&0xff;
@@ -446,15 +455,27 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
             uint32_t rest_mask = ~byte_mask;
+            uint32_t store_val = (page->memory[INPAGE(rn_val)>>2]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
             LOG("STR at address %08x byte_mask = %08x rest_mask = %08x\n",rn_val,byte_mask,rest_mask);
-            page->memory[INPAGE(rn_val)>>2] = (page->memory[INPAGE(rn_val)>>2]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
+            if(page->write_callback) {
+                page->write_callback(page->mapped_device,INPAGE(rn_val),store_val);
+            }
+            else {
+                page->memory[INPAGE(rn_val)>>2] = store_val;
+            }
+
         }
         else {
             //must be aligned
             if(rn_val&0x3) {
                 return EXCEPT_DATA_ABORT;
             }
-            page->memory[INPAGE(rn_val)>>2] = value;
+            if(page->write_callback) {
+                page->write_callback(page->mapped_device,INPAGE(rn_val),value);
+            }
+            {
+                page->memory[INPAGE(rn_val)>>2] = value;
+            }
         }
     }
     //Now for any post indexing

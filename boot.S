@@ -64,7 +64,10 @@ hw_id_loop:
         MCR 1,#mov_register_opcode,R3,CR2,CR0
         /* Perform the map operation! */
         CDP 1,#map_memory_opcode,CR0,CR1,CR2
-hw_loop_done:   
+hw_loop_done:
+        /* Let's try a test where we read from the mapped keyboard memory */
+        MOV R4,#keyboard_map_start
+        LDR R0,[R4]
         
         /* Set CR1 to be the start value */
         /* Set CR2 to be the end value */

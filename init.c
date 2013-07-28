@@ -232,6 +232,9 @@ armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint
                 return ARMV2STATUS_MEMORY_ERROR;
             }
             page->memory = NULL;
+            if(hw_mapping.device) {
+                page->mapped_device = hw_mapping.device->extra;
+            }
             cpu->page_tables[page_pos] = page;
         }
         //Already checked everything's OK, and we're single threaded, so this should be ok I think...
@@ -249,8 +252,9 @@ armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint
 }
 
 armv2status_t add_mapping(hardware_mapping_t **head,hardware_mapping_t *item) {
-    LOG("Apping mad!\n");
+    LOG("Apping mad! *p *p\n",*head,item);
     if(NULL == head) {
+        LOG("Mapping jim NULL\n");
         return ARMV2STATUS_INVALID_ARGS;
     }
     item->next = *head;
