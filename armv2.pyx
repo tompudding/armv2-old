@@ -159,7 +159,7 @@ cdef class Device:
         self.cdevice = <carmv2.hardware_device_t*>malloc(sizeof(carmv2.hardware_device_t))
         self.cdevice.device_id = self.id
         self.cdevice.read_callback = <carmv2.access_callback_t>self.read;
-        self.cdevice.write_callback = NULL;
+        self.cdevice.write_callback = <carmv2.access_callback_t>self.write;
         if self.cdevice == NULL:
             raise MemoryError()
 
@@ -302,3 +302,4 @@ def DebugLog(message):
     if debugf == None:
         debugf = open('/tmp/pyarmv2.log','wb')
     debugf.write(message)
+    debugf.flush()

@@ -419,9 +419,13 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(page->read_callback) {
             value = page->read_callback(page->mapped_device,INPAGE(rn_val),0);
         }
-        else {
+        else if (NULL != page->memory) {
             LOG("no rc jim!\n");
             value = page->memory[INPAGE(rn_val)>>2];
+        }
+        else {
+            //No read callback and no memory page is an error!
+            return EXCEPT_DATA_ABORT;
         }
         LOG("Have value %08x and %d\n",value,instruction&SDT_LOAD_BYTE);
         if(instruction&SDT_LOAD_BYTE) { 
@@ -440,6 +444,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     else {
         //STR
         uint32_t value;
+        LOG("a\n");
         if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_WRITE)) {
             return EXCEPT_DATA_ABORT;
         }
@@ -449,6 +454,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         else {
             value = GETREG(cpu,rd);
         }
+        LOG("b\n");
         
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
@@ -458,7 +464,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             if(page->write_callback) {
                 page->write_callback(page->mapped_device,INPAGE(rn_val),store_val);
             }
-            else {
+            else if(NULL != page->memory) {
                 page->memory[INPAGE(rn_val)>>2] = store_val;
             }
 
@@ -468,15 +474,18 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             if(rn_val&0x3) {
                 return EXCEPT_DATA_ABORT;
             }
+            LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
             if(page->write_callback) {
                 LOG("STR at address %08x %08x wc %p\n",rn_val,value,page->write_callback);
                 page->write_callback(page->mapped_device,INPAGE(rn_val),value);
             }
-            {
+            else if(NULL != page->memory) {
+                LOG("c\n");
                 page->memory[INPAGE(rn_val)>>2] = value;
             }
         }
     }
+    LOG("d\n");
     //Now for any post indexing
     if((instruction&SDT_PREINDEX) == 0) {
         if(instruction&SDT_OFFSET_ADD) {
@@ -605,7 +614,17 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
                 retval = EXCEPT_DATA_ABORT;
                 continue;
             }
-            value = page->memory[INPAGE(address)>>2];
+            if(page->read_callback) {
+                value = page->read_callback(page->mapped_device,INPAGE(address),0);
+            }
+            else if(NULL != page->memory) {
+                value = page->memory[INPAGE(address)>>2];
+            }
+            else {
+                //No read callback and no memory page is an error
+                retval = EXCEPT_DATA_ABORT;
+                continue;
+            }
             if(rs == PC) {
                 //this means we update the whole register, except for prohibited flags in user mode
                 if(GETMODE(cpu) == MODE_USR) {
@@ -646,7 +665,12 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
                     value = write_back_old;
                 }
             }
-            page->memory[INPAGE(address)>>2] = value;
+            if(page->write_callback) {
+                page->write_callback(page->mapped_device,INPAGE(address),value);
+            }
+            else if(NULL != page->memory) {
+                page->memory[INPAGE(address)>>2] = value;
+            }
         }
     }
     

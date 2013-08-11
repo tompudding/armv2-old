@@ -8,6 +8,7 @@ class Keyboard(armv2.Device):
 
     def readCallback(self,addr,value):
         armv2.DebugLog('keyboard reader %x %x\n' % (addr,value))
+        return 0;
 
     def writeCallback(self,addr,value):
         armv2.DebugLog('keyboard writer %x %x\n' % (addr,value))
