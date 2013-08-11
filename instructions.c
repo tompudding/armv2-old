@@ -417,7 +417,6 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         
         LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
         if(page->read_callback) {
-            LOG("rc %p %08x jim!\n",page->mapped_device,INPAGE(rn_val));
             value = page->read_callback(page->mapped_device,INPAGE(rn_val),0);
         }
         else {
@@ -451,7 +450,6 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             value = GETREG(cpu,rd);
         }
         
-        
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
             uint32_t rest_mask = ~byte_mask;
@@ -471,6 +469,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
                 return EXCEPT_DATA_ABORT;
             }
             if(page->write_callback) {
+                LOG("STR at address %08x %08x wc %p\n",rn_val,value,page->write_callback);
                 page->write_callback(page->mapped_device,INPAGE(rn_val),value);
             }
             {

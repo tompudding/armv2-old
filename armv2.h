@@ -131,7 +131,7 @@ typedef struct {
     uint32_t *effective[NUM_EFFECTIVE_REGS];
 } regs_t;
 
-typedef uint32_t (*access_callback_t)(void *device, uint32_t addr, uint32_t value);
+typedef uint32_t (*access_callback_t)(void *extra, uint32_t addr, uint32_t value);
 
 typedef struct {
     uint32_t          *memory;

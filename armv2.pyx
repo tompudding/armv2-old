@@ -170,6 +170,8 @@ cdef class Device:
             return self.readCallback(addr,value)
 
     cdef uint32_t write(self,uint32_t addr, uint32_t value) with gil:
+        with open('/tmp/yyy.bin','wb') as f:
+            f.write(str(type(self)) + '\n' + str(self.readCallback))
         if self.writeCallback:
             return self.writeCallback(addr,value)
 
@@ -286,9 +288,17 @@ cdef class Armv2:
         return result
 
     def AddHardware(self,Device device):
+        #FIXME: Does this do reference counting properly? We need it to increment, and we need a corresponding
+        #decrement somewhere else in the code
         device.cdevice.extra = <void*>device
         result = carmv2.add_hardware(self.cpu,device.cdevice)
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError
         self.hardware.append(device)
 
+debugf = None
+def DebugLog(message):
+    global debugf
+    if debugf == None:
+        debugf = open('/tmp/pyarmv2.log','wb')
+    debugf.write(message)

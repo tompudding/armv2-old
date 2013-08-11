@@ -68,6 +68,10 @@ hw_loop_done:
         /* Let's try a test where we read from the mapped keyboard memory */
         MOV R4,#keyboard_map_start
         LDR R0,[R4]
+        MOV R1,#17
+        STR R1,[R4]
+        STR R1,[R4,#4]
+        LDR R0,[R4,#4]
         
         /* Set CR1 to be the start value */
         /* Set CR2 to be the end value */
