@@ -14,6 +14,7 @@ typedef enum {
     ARMV2STATUS_UNIVERSE_BROKEN  ,
     ARMV2STATUS_NO_SUCH_DEVICE   ,
     ARMV2STATUS_ALREADY_MAPPED   ,
+    ARMV2STATUS_INVALID_PAGE     ,
 } armv2status_t;
 
 #endif

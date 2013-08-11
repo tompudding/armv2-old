@@ -150,6 +150,44 @@ uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t 
     return op2;
 }
 
+static armv2status_t PerformLoad(page_info_t *page, uint32_t addr, uint32_t *out) {
+    uint32_t value;
+    if(NULL == page || NULL == out) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    if(page->read_callback) {
+        value = page->read_callback(page->mapped_device,INPAGE(addr),0);
+    }
+    else if(NULL != page->memory) {
+        value = page->memory[INPAGE(addr)>>2];
+    }
+    else {
+        //No callback and no memory page is an error
+        return ARMV2STATUS_INVALID_PAGE;
+    }
+    //Looks good
+    *out = value;
+    return ARMV2STATUS_OK;
+}
+
+static armv2status_t PerformStore(page_info_t *page, uint32_t addr, uint32_t value) {
+    if(NULL == page) {
+        return ARMV2STATUS_INVALID_ARGS;
+    }
+    if(page->write_callback) {
+        page->write_callback(page->mapped_device,INPAGE(addr),value);
+    }
+    else if(NULL != page->memory) {
+        page->memory[INPAGE(addr)>>2] = value;
+    }
+    else {
+        //No callback and no memory page is an error
+        return ARMV2STATUS_INVALID_PAGE;
+    }
+    //Looks good
+    return ARMV2STATUS_OK;
+}
+
 armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t opcode   = (instruction>>21)&0xf;
@@ -416,17 +454,10 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         }
         
         LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
-        if(page->read_callback) {
-            value = page->read_callback(page->mapped_device,INPAGE(rn_val),0);
-        }
-        else if (NULL != page->memory) {
-            LOG("no rc jim!\n");
-            value = page->memory[INPAGE(rn_val)>>2];
-        }
-        else {
-            //No read callback and no memory page is an error!
+        if(ARMV2STATUS_OK != PerformLoad(page,rn_val,&value)) {
             return EXCEPT_DATA_ABORT;
         }
+        
         LOG("Have value %08x and %d\n",value,instruction&SDT_LOAD_BYTE);
         if(instruction&SDT_LOAD_BYTE) { 
             value = (value>>((rn_val&3)<<3))&0xff;
@@ -461,13 +492,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             uint32_t rest_mask = ~byte_mask;
             uint32_t store_val = (page->memory[INPAGE(rn_val)>>2]&rest_mask) | ((value&0xff)<<((rn_val&3)<<3));
             LOG("STR at address %08x byte_mask = %08x rest_mask = %08x\n",rn_val,byte_mask,rest_mask);
-            if(page->write_callback) {
-                page->write_callback(page->mapped_device,INPAGE(rn_val),store_val);
-            }
-            else if(NULL != page->memory) {
-                page->memory[INPAGE(rn_val)>>2] = store_val;
-            }
-
+            (void) PerformStore(page,rn_val,store_val);
         }
         else {
             //must be aligned
@@ -475,14 +500,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
                 return EXCEPT_DATA_ABORT;
             }
             LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
-            if(page->write_callback) {
-                LOG("STR at address %08x %08x wc %p\n",rn_val,value,page->write_callback);
-                page->write_callback(page->mapped_device,INPAGE(rn_val),value);
-            }
-            else if(NULL != page->memory) {
-                LOG("c\n");
-                page->memory[INPAGE(rn_val)>>2] = value;
-            }
+            (void) PerformStore(page,rn_val,value);
         }
     }
     LOG("d\n");
@@ -614,17 +632,11 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
                 retval = EXCEPT_DATA_ABORT;
                 continue;
             }
-            if(page->read_callback) {
-                value = page->read_callback(page->mapped_device,INPAGE(address),0);
-            }
-            else if(NULL != page->memory) {
-                value = page->memory[INPAGE(address)>>2];
-            }
-            else {
-                //No read callback and no memory page is an error
+            if(ARMV2STATUS_OK != PerformLoad(page,address,&value)) {
                 retval = EXCEPT_DATA_ABORT;
                 continue;
             }
+
             if(rs == PC) {
                 //this means we update the whole register, except for prohibited flags in user mode
                 if(GETMODE(cpu) == MODE_USR) {
@@ -665,12 +677,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
                     value = write_back_old;
                 }
             }
-            if(page->write_callback) {
-                page->write_callback(page->mapped_device,INPAGE(address),value);
-            }
-            else if(NULL != page->memory) {
-                page->memory[INPAGE(address)>>2] = value;
-            }
+            (void) PerformStore(page,address,value);
         }
     }
     
@@ -709,7 +716,9 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     }
 
     //First load
-    value = page->memory[INPAGE(address)>>2];
+    if(ARMV2STATUS_OK != PerformLoad(page,address,&value)) {
+        return EXCEPT_DATA_ABORT;
+    }
     if(byte) { 
         value = (value>>((address&3)<<3))&0xff;
     }
@@ -734,15 +743,16 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     if(byte) {
         uint32_t byte_mask = 0xff<<((address&3)<<3);
         uint32_t rest_mask = ~byte_mask;
-        page->memory[INPAGE(address)>>2] = (page->memory[INPAGE(address)]&rest_mask) | ((value&0xff)<<((address&3)<<3));
+        value = (page->memory[INPAGE(address)]&rest_mask) | ((value&0xff)<<((address&3)<<3));
     }
     else {
         //must be aligned
         if(address&0x3) {
             return EXCEPT_DATA_ABORT;
         }
-        page->memory[INPAGE(address)>>2] = value;
     }
+
+    (void) PerformStore(page,address,value);
 
     return EXCEPT_NONE;
 }
