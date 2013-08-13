@@ -234,6 +234,7 @@ class Memdump(View):
 
 class Debugger(object):
     BKPT = 0xef000000 | armv2.SWI_BREAKPOINT
+    FRAME_CYCLES = 66666
     def __init__(self,cpu,stdscr):
         self.cpu              = cpu
         self.breakpoints      = {}
@@ -248,6 +249,7 @@ class Debugger(object):
         self.memdump_window = Memdump(self,self.h/2,self.w/2,self.h/2,self.w/2)
         self.window_choices = [self.code_window,self.memdump_window]
         self.current_view   = self.code_window
+        self.frame_callback = None
         self.help_window.Draw()
 
     def AddBreakpoint(self,addr):
@@ -285,13 +287,15 @@ class Debugger(object):
         result = None
         try:
             while result != armv2.Status.Breakpoint:
-                result = self.StepNum(10000)
+                result = self.StepNum(self.FRAME_CYCLES)
+                if self.frame_callback:
+                    self.frame_callback()
         except KeyboardInterrupt:
             return
-            
         
-    def Run(self):
+    def Run(self,frame_callback):
         self.current_view = self.code_window
+        self.frame_callback = frame_callback
         
         #Set the next instruction to be a breakpoint
         self.current_view.Select(self.cpu.pc)
@@ -301,6 +305,8 @@ class Debugger(object):
         while True:
             #disassembly = disassemble.Disassemble(cpu.mem)
             try:
+                if self.frame_callback:
+                    self.frame_callback()
                 for window in self.state_window,self.memdump_window,self.code_window:
                     window.Draw(self.current_view is window)
 
