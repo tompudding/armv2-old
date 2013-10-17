@@ -3,6 +3,7 @@ import binascii
 import debugger
 import sys
 import hardware
+import pygame
 from pygame.locals import *
 from optparse import OptionParser
 
@@ -26,18 +27,19 @@ def main(stdscr):
     pygame.mouse.set_visible(0)
 
     curses.use_default_colors()
-    cpu = armv2.Armv2(size = 2**21, filename = 'boot.rom')
+    machine = hardware.Machine(cpu_size = 2**21, cpu_rom = 'boot.rom')
     
-    cpu.AddHardware(hardware.Keyboard())
+    machine.AddHardware(hardware.Keyboard())
+    machine.AddHardware(hardware.LCDDisplay(),name='display')
 
-    dbg = debugger.Debugger(cpu,stdscr)
+    dbg = debugger.Debugger(machine.cpu,stdscr)
     background = pygame.Surface((200,200))
     background = background.convert()
     background.fill((0, 0, 0))
-    cpu.screen.screen.blit(background, (0, 0))
+    machine.display.screen.blit(background, (0, 0))
 
     def frame_callback():
-        
+        print 'frame'
     
     dbg.Run(frame_callback)
 

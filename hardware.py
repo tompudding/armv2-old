@@ -1,4 +1,5 @@
 import armv2
+import pygame
 
 class Keyboard(armv2.Device):
     id = 0x41414141
@@ -39,12 +40,12 @@ class LCDDisplay(armv2.Device):
             'p'  : 0x0000, 'q'  : 0x0000, 'r'  : 0x0000, 's'  : 0x0000,
             't'  : 0x0000, 'u'  : 0x0000, 'v'  : 0x0000, 'w'  : 0x0000,
             'x'  : 0x0000, 'y'  : 0x0000, 'z'  : 0x0000, '{'  : 0x0000,
-            '|'  : 0x0000, '}'  : 0x0000, '~'  : 0x0000, '' : 0x0000,
+            '|'  : 0x0000, '}'  : 0x0000, '~'  : 0x0000, '' : 0x0000}
 
     def __init__(self):
         super(LCDDisplay,self).__init__()
         self.size_in_chars = (14,1)
-        self.size = (self.size_in_chars[i]*self.char_size[i] for i in 0,1)
+        self.size = [self.size_in_chars[i]*self.char_size[i] for i in (0,1)]
         self.screen = pygame.display.set_mode(self.size)
         armv2.DebugLog('LCD Init!\n')
 
@@ -54,5 +55,16 @@ class LCDDisplay(armv2.Device):
 
     def writeCallback(self,addr,value):
         armv2.DebugLog('keyboard writer %x %x\n' % (addr,value))
+
+class Machine:
+    def __init__(self,cpu_size,cpu_rom):
+        self.cpu = armv2.Armv2(size = cpu_size,filename = cpu_rom)
+        self.hardware = []
+
+    def AddHardware(self,device,name = None):
+        self.cpu.AddHardware(device)
+        self.hardware.append(device)
+        if name != None:
+            setattr(self,name,device)
 
    

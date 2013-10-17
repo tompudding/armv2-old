@@ -287,7 +287,7 @@ cdef class Armv2:
         #right now can only return OK or BREAKPOINT, but we don't care either way...
         return result
 
-    def AddHardware(self,Device device):
+    def AddHardware(self,Device device,name = None):
         #FIXME: Does this do reference counting properly? We need it to increment, and we need a corresponding
         #decrement somewhere else in the code
         device.cdevice.extra = <void*>device
@@ -295,6 +295,7 @@ cdef class Armv2:
         if result != carmv2.ARMV2STATUS_OK:
             raise ValueError
         self.hardware.append(device)
+
 
 debugf = None
 def DebugLog(message):
