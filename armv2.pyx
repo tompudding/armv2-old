@@ -163,17 +163,19 @@ cdef class Device:
         if self.cdevice == NULL:
             raise MemoryError()
 
-    cdef uint32_t read(self,uint32_t addr, uint32_t value) with gil:
-        with open('/tmp/xxx.bin','wb') as f:
-            f.write(str(type(self)) + '\n' + str(self.readCallback))
-        if self.readCallback:
-            return self.readCallback(addr,value)
+    cdef uint32_t read(self,uint32_t addr, uint32_t value) nogil:
+        with gil:
+            with open('/tmp/xxx.bin','wb') as f:
+                f.write(str(type(self)) + '\n' + str(self.readCallback))
+            if self.readCallback:
+                return self.readCallback(addr,value)
 
-    cdef uint32_t write(self,uint32_t addr, uint32_t value) with gil:
-        with open('/tmp/yyy.bin','wb') as f:
-            f.write(str(type(self)) + '\n' + str(self.readCallback))
-        if self.writeCallback:
-            return self.writeCallback(addr,value)
+    cdef uint32_t write(self,uint32_t addr, uint32_t value) nogil:
+        with gil:
+            with open('/tmp/yyy.bin','wb') as f:
+                f.write(str(type(self)) + '\n' + str(self.readCallback))
+            if self.writeCallback:
+                return self.writeCallback(addr,value)
 
     def __dealloc__(self):
         if self.cdevice != NULL:
@@ -283,7 +285,11 @@ cdef class Armv2:
             raise ValueError()
 
     def Step(self,number = None):
-        cdef uint32_t result = carmv2.run_armv2(self.cpu,-1 if number == None else number)
+        cdef uint32_t result
+        cdef carmv2.armv2_t *cpu = self.cpu
+        cdef uint32_t instructions = -1 if number == None else number
+        with nogil:
+            result = carmv2.run_armv2(cpu,instructions)
         #right now can only return OK or BREAKPOINT, but we don't care either way...
         return result
 
@@ -302,5 +308,7 @@ def DebugLog(message):
     global debugf
     if debugf == None:
         debugf = open('/tmp/pyarmv2.log','wb')
+    if not message.endswith('\n'):
+        message += '\n'
     debugf.write(message)
     debugf.flush()

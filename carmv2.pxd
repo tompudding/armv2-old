@@ -97,8 +97,8 @@ cdef extern from "armv2.h":
         access_callback_t write_callback
         void *extra
 
-    armv2status_t init(armv2_t *cpu, uint32_t memsize)
-    armv2status_t load_rom(armv2_t *cpu, const char *filename)
-    armv2status_t cleanup_armv2(armv2_t *cpu)
-    armv2status_t run_armv2(armv2_t *cpu, int32_t instructions)
-    armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device)
+    armv2status_t init(armv2_t *cpu, uint32_t memsize) nogil
+    armv2status_t load_rom(armv2_t *cpu, const char *filename) nogil
+    armv2status_t cleanup_armv2(armv2_t *cpu) nogil
+    armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) nogil
+    armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device) nogil

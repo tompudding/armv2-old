@@ -1,5 +1,6 @@
 import armv2
 import pygame
+import threading
 
 class Keyboard(armv2.Device):
     id = 0x41414141
@@ -56,15 +57,90 @@ class LCDDisplay(armv2.Device):
     def writeCallback(self,addr,value):
         armv2.DebugLog('keyboard writer %x %x\n' % (addr,value))
 
+class MemPassthrough(object):
+    def __init__(self,cv,accessor):
+        self.cv = cv
+        self.accessor = accessor
+
+    def __getitem__(self,index):
+        with self.cv:
+            return self.accessor.__getitem__(index)
+
+    def __setitem__(self,index,values):
+        with self.cv:
+            return self.accessor.__setitem__(index,values)
+
+    def __len__(self):
+        with self.cv:
+            return self.accessor.__len__()
+
 class Machine:
     def __init__(self,cpu_size,cpu_rom):
-        self.cpu = armv2.Armv2(size = cpu_size,filename = cpu_rom)
-        self.hardware = []
+        self.cpu          = armv2.Armv2(size = cpu_size,filename = cpu_rom)
+        self.hardware     = []
+        self.running      = True
+        self.steps_to_run = 0
+        self.cv           = threading.Condition()
+        self.mem          = MemPassthrough(self.cv,self.cpu.mem)
+        self.memw         = MemPassthrough(self.cv,self.cpu.memw)
+        self.thread       = threading.Thread(target = self.threadMain)
+        self.thread.start()
+
+    @property
+    def regs(self):
+        with self.cv:
+            return self.cpu.regs
+
+    @regs.setter
+    def regs(self,value):
+        with self.cv:
+            self.cpu.regs = value
+
+    @property
+    def mode(self):
+        armv2.DebugLog('About to lock in mode')
+        with self.cv:
+            return self.cpu.mode
+
+    @property
+    def pc(self):
+        armv2.DebugLog('About to lock in pc')
+        with self.cv:
+            return self.cpu.pc
+
+    def threadMain(self):
+        with self.cv:
+            while self.running:
+                armv2.DebugLog('main thread loop')
+                while self.running and self.steps_to_run == 0:
+                    armv2.DebugLog('about to wait')
+                    self.cv.wait()
+                if not self.running:
+                    break
+                armv2.DebugLog('Cpu thread running with %d ticks' % self.steps_to_run)
+                self.cpu.Step(self.steps_to_run)
+                self.steps_to_run = 0
+
+    def Step(self,num):
+        armv2.DebugLog('step lock %d' % num)
+        with self.cv:
+            self.steps_to_run = num
+            self.cv.notify()
 
     def AddHardware(self,device,name = None):
-        self.cpu.AddHardware(device)
+        armv2.DebugLog('add hardware lock')
+        with self.cv:
+            self.cpu.AddHardware(device)
         self.hardware.append(device)
         if name != None:
             setattr(self,name,device)
+
+    def Delete(self):
+        armv2.DebugLog('Killing machine')
+        with self.cv:
+            self.running = False
+            self.cv.notify()
+        self.thread.join()
+        armv2.DebugLog('Killed')
 
    

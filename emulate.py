@@ -28,20 +28,22 @@ def main(stdscr):
 
     curses.use_default_colors()
     machine = hardware.Machine(cpu_size = 2**21, cpu_rom = 'boot.rom')
-    
-    machine.AddHardware(hardware.Keyboard())
-    machine.AddHardware(hardware.LCDDisplay(),name='display')
+    try:
+        machine.AddHardware(hardware.Keyboard())
+        machine.AddHardware(hardware.LCDDisplay(),name='display')
 
-    dbg = debugger.Debugger(machine.cpu,stdscr)
-    background = pygame.Surface((200,200))
-    background = background.convert()
-    background.fill((0, 0, 0))
-    machine.display.screen.blit(background, (0, 0))
+        dbg = debugger.Debugger(machine,stdscr)
+        background = pygame.Surface((200,200))
+        background = background.convert()
+        background.fill((0, 0, 0))
+        machine.display.screen.blit(background, (0, 0))
 
-    def frame_callback():
-        print 'frame'
-    
-    dbg.Run(frame_callback)
+        def frame_callback():
+            print 'frame'
+
+        dbg.Run(frame_callback)
+    finally:
+        machine.Delete()
 
 if __name__ == '__main__':
     import curses

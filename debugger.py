@@ -43,11 +43,11 @@ class Debug(View):
         correct = None
         self.disassembly = []
         start = max(pos-((self.height-2)/2)*4,0)
-        end = min(pos + ((self.height-2)/2)*4,len(self.debugger.cpu.mem))
+        end = min(pos + ((self.height-2)/2)*4,len(self.debugger.machine.mem))
         #print '%x - %x - %x' % (start,pos,end)
         dis = []
-        for instruction in disassemble.Disassemble(self.debugger.cpu,self.debugger.breakpoints,start,start+(self.height-2)*4):
-            arrow = '==>' if instruction.addr == self.debugger.cpu.pc else ''
+        for instruction in disassemble.Disassemble(self.debugger.machine,self.debugger.breakpoints,start,start+(self.height-2)*4):
+            arrow = '==>' if instruction.addr == self.debugger.machine.pc else ''
             bpt   = '*' if instruction.addr in self.debugger.breakpoints else ' '
             dis.append( (instruction.addr,'%3s%s%07x %08x : %s' % (arrow,bpt,instruction.addr,instruction.word,instruction.ToString())))
                 
@@ -98,7 +98,7 @@ class Debug(View):
             self.debugger.Step()
             return WindowControl.RESUME
         elif ch == ord('r'):
-            #self.debugger.cpu.Reset()
+            #self.debugger.machine.Reset()
             return WindowControl.RESUME
         elif ch == ord('q'):
             return WindowControl.EXIT
@@ -132,10 +132,10 @@ class State(View):
             self.window.border()
         for i in xrange(16):
             regname = self.reglist[i]
-            value = self.debugger.cpu.regs[i]
+            value = self.debugger.machine.regs[i]
             self.window.addstr(i+1,1,'%3s : %08x' % (regname,value))
-        self.window.addstr(1,18,'Mode : %s' % self.mode_names[self.debugger.cpu.mode])
-        self.window.addstr(2,18,'  pc : %08x' % self.debugger.cpu.pc)
+        self.window.addstr(1,18,'Mode : %s' % self.mode_names[self.debugger.machine.mode])
+        self.window.addstr(2,18,'  pc : %08x' % self.debugger.machine.pc)
         self.window.refresh()
 
 class Help(View):
@@ -171,7 +171,7 @@ class Memdump(View):
             self.window.border()
         for i in xrange(self.height-2):
             addr = self.pos + i*self.display_width
-            data = self.debugger.cpu.mem[addr:addr+self.display_width]
+            data = self.debugger.machine.mem[addr:addr+self.display_width]
             if len(data) < self.display_width:
                 data += '??'*(self.display_width-len(data))
             data_string = ' '.join((('%02x' % ord(data[i])) if i < len(data) else '??') for i in xrange(self.display_width))
@@ -235,8 +235,8 @@ class Memdump(View):
 class Debugger(object):
     BKPT = 0xef000000 | armv2.SWI_BREAKPOINT
     FRAME_CYCLES = 66666
-    def __init__(self,cpu,stdscr):
-        self.cpu              = cpu
+    def __init__(self,machine,stdscr):
+        self.machine          = machine
         self.breakpoints      = {}
         self.selected         = 0
         self.stdscr           = stdscr
@@ -258,26 +258,26 @@ class Debugger(object):
         if addr in self.breakpoints:
             return
         addr_word = addr
-        self.breakpoints[addr]   = self.cpu.memw[addr_word]
-        self.cpu.memw[addr_word] = self.BKPT
+        self.breakpoints[addr]   = self.machine.memw[addr_word]
+        self.machine.memw[addr_word] = self.BKPT
     
     def RemoveBreakpoint(self,addr):
-        self.cpu.memw[addr] = self.breakpoints[addr]
+        self.machine.memw[addr] = self.breakpoints[addr]
         del self.breakpoints[addr]
 
     def StepNum(self,num):
         #If we're at a breakpoint and we've been asked to continue, we step it once and then replace the breakpoint
         if num == 0:
             return None
-        #print 'stepping',self.cpu.pc,num, self.cpu.pc in self.breakpoints
-        if self.cpu.pc in self.breakpoints:
-            old_pos = self.cpu.pc
-            self.cpu.memw[self.cpu.pc] = self.breakpoints[self.cpu.pc]
-            self.cpu.Step(1)
-            self.cpu.memw[old_pos] = self.BKPT
+        #print 'stepping',self.machine.pc,num, self.machine.pc in self.breakpoints
+        if self.machine.pc in self.breakpoints:
+            old_pos = self.machine.pc
+            self.machine.memw[self.machine.pc] = self.breakpoints[self.machine.pc]
+            self.machine.Step(1)
+            self.machine.memw[old_pos] = self.BKPT
             if num > 0:
                 num -= 1
-        return self.cpu.Step(num)
+        return self.machine.Step(num)
         
 
     def Step(self):
@@ -298,8 +298,8 @@ class Debugger(object):
         self.frame_callback = frame_callback
         
         #Set the next instruction to be a breakpoint
-        self.current_view.Select(self.cpu.pc)
-        self.current_view.Centre(self.cpu.pc)
+        self.current_view.Select(self.machine.pc)
+        self.current_view.Centre(self.machine.pc)
 
         #We're stopped, so display and wait for a keypress
         while True:
@@ -312,8 +312,8 @@ class Debugger(object):
 
                 result = self.current_view.TakeInput()
                 if result == WindowControl.RESUME:
-                    self.current_view.Select(self.cpu.pc)
-                    self.current_view.Centre(self.cpu.pc)
+                    self.current_view.Select(self.machine.pc)
+                    self.current_view.Centre(self.machine.pc)
                     continue
                 elif result == WindowControl.RESTART:
                     return False
