@@ -304,11 +304,13 @@ cdef class Armv2:
 
 
 debugf = None
+log_lock = threading.Lock()
 def DebugLog(message):
     global debugf
-    if debugf == None:
-        debugf = open('/tmp/pyarmv2.log','wb')
-    if not message.endswith('\n'):
-        message += '\n'
-    debugf.write(message)
-    debugf.flush()
+    with log_lock:
+        if debugf == None:
+            debugf = open('/tmp/pyarmv2.log','wb')
+        if not message.endswith('\n'):
+            message += '\n'
+        debugf.write(message)
+        debugf.flush()
