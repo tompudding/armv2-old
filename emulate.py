@@ -39,7 +39,8 @@ def main(stdscr):
         machine.display.screen.blit(background, (0, 0))
 
         def frame_callback():
-            print 'frame'
+            #print 'frame'
+            pass
 
         dbg.Run(frame_callback)
     finally:

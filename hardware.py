@@ -1,6 +1,7 @@
 import armv2
 import pygame
 import threading
+import traceback
 
 class Keyboard(armv2.Device):
     id = 0x41414141
@@ -98,13 +99,11 @@ class Machine:
 
     @property
     def mode(self):
-        armv2.DebugLog('About to lock in mode')
         with self.cv:
             return self.cpu.mode
 
     @property
     def pc(self):
-        armv2.DebugLog('About to lock in pc')
         with self.cv:
             return self.cpu.pc
 
@@ -128,7 +127,6 @@ class Machine:
             self.cv.notify()
 
     def AddHardware(self,device,name = None):
-        armv2.DebugLog('add hardware lock')
         with self.cv:
             self.cpu.AddHardware(device)
         self.hardware.append(device)
@@ -136,7 +134,6 @@ class Machine:
             setattr(self,name,device)
 
     def Delete(self):
-        armv2.DebugLog('Killing machine')
         with self.cv:
             self.running = False
             self.cv.notify()
