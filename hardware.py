@@ -9,6 +9,12 @@ class Keyboard(armv2.Device):
         super(Keyboard,self).__init__()
         armv2.DebugLog('keyboard keyboard keyboard!\n')
 
+    def KeyDown(self,key):
+        armv2.DebugLog('key down ' + str(key))
+
+    def KeyUp(self,key):
+        armv2.DebugLog('key up ' + str(key))
+
     def readCallback(self,addr,value):
         armv2.DebugLog('keyboard reader %x %x\n' % (addr,value))
         return 0;

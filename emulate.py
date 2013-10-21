@@ -18,6 +18,18 @@ class StdOutWrapper:
     def get_text(self):
         return ''.join(self.text)
 
+def mainloop(dbg,machine):
+    dbg.StepNum(dbg.FRAME_CYCLES)
+    for event in pygame.event.get():
+        if event.type == pygame.locals.QUIT:
+            done = True
+            break
+
+        if event.type == pygame.locals.KEYDOWN:
+            machine.keyboard.KeyDown(event.key)
+        elif event.type == pygame.locals.KEYUP:
+            machine.keyboard.KeyUp(event.key)
+
 def main(stdscr):
     parser = OptionParser(usage="usage: %prog [options] filename",
                           version="%prog 1.0")
@@ -38,11 +50,14 @@ def main(stdscr):
         background.fill((0, 0, 0))
         machine.display.screen.blit(background, (0, 0))
 
-        def frame_callback():
-            #print 'frame'
-            pass
+        done = False
+        while not done:
+            try:
+                mainloop(dbg,machine)
+            except KeyboardInterrupt:
+                armv2.DebugLog('kbd int')
+                dbg.Stop()                    
 
-        dbg.Run(frame_callback)
     finally:
         machine.Delete()
 

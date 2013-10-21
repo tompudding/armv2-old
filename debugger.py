@@ -249,7 +249,10 @@ class Debugger(object):
         self.memdump_window = Memdump(self,self.h/2,self.w/2,self.h/2,self.w/2)
         self.window_choices = [self.code_window,self.memdump_window]
         self.current_view   = self.code_window
-        self.frame_callback = None
+        self.current_view.Select(self.machine.pc)
+        self.current_view.Centre(self.machine.pc)
+        self.num_to_step    = 0
+        self.stopped        = True
         self.help_window.Draw()
 
     def AddBreakpoint(self,addr):
@@ -265,10 +268,11 @@ class Debugger(object):
         self.machine.memw[addr] = self.breakpoints[addr]
         del self.breakpoints[addr]
 
-    def StepNum(self,num):
+    def StepNumInternal(self,num):
         #If we're at a breakpoint and we've been asked to continue, we step it once and then replace the breakpoint
         if num == 0:
             return None
+        self.num_to_step -= num
         #print 'stepping',self.machine.pc,num, self.machine.pc in self.breakpoints
         if self.machine.pc in self.breakpoints:
             old_pos = self.machine.pc
@@ -281,47 +285,46 @@ class Debugger(object):
         
 
     def Step(self):
-        return self.StepNum(1)
+        return self.StepNumInternal(1)
 
     def Continue(self):
         result = None
+        self.stopped = False
         try:
-            while result != armv2.Status.Breakpoint:
-                result = self.StepNum(self.FRAME_CYCLES)
-                if self.frame_callback:
-                    self.frame_callback()
+            if armv2.Status.Breakpoint == self.StepNumInternal(self.num_to_step):
+                self.stopped = True
         except KeyboardInterrupt:
-            return
+            armv2.DebugLog('kbt int 3')
+            self.stopped = True
         
-    def Run(self,frame_callback):
-        self.current_view = self.code_window
-        self.frame_callback = frame_callback
-        
-        #Set the next instruction to be a breakpoint
-        self.current_view.Select(self.machine.pc)
-        self.current_view.Centre(self.machine.pc)
-
+    def StepNum(self,num):
+        self.num_to_step = num
+        if not self.stopped:
+            return self.Continue()
+        #disassembly = disassemble.Disassemble(cpu.mem)
         #We're stopped, so display and wait for a keypress
-        while True:
-            #disassembly = disassemble.Disassemble(cpu.mem)
-            try:
-                if self.frame_callback:
-                    self.frame_callback()
-                for window in self.state_window,self.memdump_window,self.code_window:
-                    window.Draw(self.current_view is window)
+        armv2.DebugLog('stopped, looking for stuff')
+        try:
+            for window in self.state_window,self.memdump_window,self.code_window:
+                window.Draw(self.current_view is window)
 
-                result = self.current_view.TakeInput()
-                if result == WindowControl.RESUME:
-                    self.current_view.Select(self.machine.pc)
-                    self.current_view.Centre(self.machine.pc)
-                    continue
-                elif result == WindowControl.RESTART:
-                    return False
-                elif result == WindowControl.NEXT:
-                    pos = self.window_choices.index(self.current_view)
-                    pos = (pos + 1)%len(self.window_choices)
-                    self.current_view = self.window_choices[pos]
-                elif result == WindowControl.EXIT:
-                    raise SystemExit
-            except KeyboardInterrupt:
-                pass
+            result = self.current_view.TakeInput()
+            armv2.DebugLog('Got result %d' % result)
+            if result == WindowControl.RESUME:
+                self.current_view.Select(self.machine.pc)
+                self.current_view.Centre(self.machine.pc)
+            elif result == WindowControl.RESTART:
+                return False
+            elif result == WindowControl.NEXT:
+                pos = self.window_choices.index(self.current_view)
+                pos = (pos + 1)%len(self.window_choices)
+                self.current_view = self.window_choices[pos]
+            elif result == WindowControl.EXIT:
+                raise SystemExit
+        except KeyboardInterrupt:
+            armv2.DebugLog('kbt int 2')
+            pass
+
+    def Stop(self):
+        armv2.DebugLog("Stopped called")
+        self.stopped = True
