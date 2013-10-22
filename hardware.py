@@ -95,7 +95,9 @@ class Machine:
 
     @property
     def regs(self):
+        armv2.DebugLog('regs getter')
         with self.cv:
+            armv2.DebugLog('regs gotten!')
             return self.cpu.regs
 
     @regs.setter
@@ -114,12 +116,23 @@ class Machine:
             return self.cpu.pc
 
     def threadMain(self):
+        while self.running:
+            try:
+                self.threadMainSignal()
+                #only returns when it's done
+                break
+            except KeyboardInterrupt:
+                armv2.DebugLog('received kbd int in the cpu thread')
+                continue
+
+    def threadMainSignal(self):
         with self.cv:
             while self.running:
                 armv2.DebugLog('main thread loop')
                 while self.running and self.steps_to_run == 0:
                     armv2.DebugLog('about to wait')
-                    self.cv.wait()
+                    self.cv.wait(1)
+                    armv2.DebugLog('waited')
                 if not self.running:
                     break
                 armv2.DebugLog('Cpu thread running with %d ticks' % self.steps_to_run)
@@ -143,6 +156,7 @@ class Machine:
         with self.cv:
             self.running = False
             self.cv.notify()
+        armv2.DebugLog('joining thread')
         self.thread.join()
         armv2.DebugLog('Killed')
 

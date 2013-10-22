@@ -2,6 +2,8 @@ cimport carmv2
 from libc.stdint cimport uint32_t, int64_t
 from libc.stdlib cimport malloc, free
 import itertools
+import threading
+import thread
 
 NUMREGS = carmv2.NUMREGS
 NUM_EFFECTIVE_REGS = carmv2.NUM_EFFECTIVE_REGS
@@ -307,6 +309,7 @@ debugf = None
 log_lock = threading.Lock()
 def DebugLog(message):
     global debugf
+    message = str(thread.get_ident()) + ' ' + message
     with log_lock:
         if debugf == None:
             debugf = open('/tmp/pyarmv2.log','wb')

@@ -294,7 +294,11 @@ class Debugger(object):
             if armv2.Status.Breakpoint == self.StepNumInternal(self.num_to_step):
                 self.stopped = True
         except KeyboardInterrupt:
-            armv2.DebugLog('kbt int 3')
+            armv2.DebugLog('kbd int 3')
+            try:
+                self.machine.cv.release()
+            except RuntimeError:
+                pass
             self.stopped = True
         
     def StepNum(self,num):
@@ -306,8 +310,11 @@ class Debugger(object):
         armv2.DebugLog('stopped, looking for stuff')
         try:
             for window in self.state_window,self.memdump_window,self.code_window:
+                armv2.DebugLog(str(window))
                 window.Draw(self.current_view is window)
+                armv2.DebugLog(str(window) + ' 1')
 
+            armv2.DebugLog('Taking Input')
             result = self.current_view.TakeInput()
             armv2.DebugLog('Got result %d' % result)
             if result == WindowControl.RESUME:
@@ -323,7 +330,7 @@ class Debugger(object):
                 raise SystemExit
         except KeyboardInterrupt:
             armv2.DebugLog('kbt int 2')
-            pass
+            self.stopped = True
 
     def Stop(self):
         armv2.DebugLog("Stopped called")

@@ -59,6 +59,7 @@ def main(stdscr):
                 dbg.Stop()                    
 
     finally:
+        armv2.DebugLog('deleting machine')
         machine.Delete()
 
 if __name__ == '__main__':
