@@ -5,10 +5,10 @@ import itertools
 import threading
 import thread
 
-NUMREGS = carmv2.NUMREGS
+NUMREGS            = carmv2.NUMREGS
 NUM_EFFECTIVE_REGS = carmv2.NUM_EFFECTIVE_REGS
-MAX_26BIT = 1<<26
-SWI_BREAKPOINT = carmv2.SWI_BREAKPOINT
+MAX_26BIT          = 1<<26
+SWI_BREAKPOINT     = carmv2.SWI_BREAKPOINT
 
 class CpuExceptions:
     Reset                = carmv2.EXCEPT_RST                   
@@ -171,13 +171,16 @@ cdef class Device:
                 f.write(str(type(self)) + '\n' + str(self.readCallback))
             if self.readCallback:
                 return self.readCallback(addr,value)
+            return 0
 
     cdef uint32_t write(self,uint32_t addr, uint32_t value) nogil:
         with gil:
             with open('/tmp/yyy.bin','wb') as f:
-                f.write(str(type(self)) + '\n' + str(self.readCallback))
+                f.write(str(type(self)) + '\n' + str(self.writeCallback) + '\n' + str(addr) + ',' + str(value) + '\n')
             if self.writeCallback:
-                return self.writeCallback(addr,value)
+                return self.writeCallback(int(addr),int(value))
+                    
+            return 0
 
     def __dealloc__(self):
         if self.cdevice != NULL:

@@ -2,6 +2,7 @@ import armv2
 import pygame
 import threading
 import traceback
+import signal
 
 class Keyboard(armv2.Device):
     id = 0x41414141
@@ -17,10 +18,12 @@ class Keyboard(armv2.Device):
 
     def readCallback(self,addr,value):
         armv2.DebugLog('keyboard reader %x %x\n' % (addr,value))
-        return 0;
+        return 0
 
     def writeCallback(self,addr,value):
         armv2.DebugLog('keyboard writer %x %x\n' % (addr,value))
+        return 0
+
 
 class LCDDisplay(armv2.Device):
     id = 0x41414142
@@ -87,7 +90,9 @@ class Machine:
         self.hardware     = []
         self.running      = True
         self.steps_to_run = 0
-        self.cv           = threading.Condition()
+        #I'm not sure why I need a regular lock here rather than the default (A RLock), but with the default
+        #I get weird deadlocks on KeyboardInterrupt
+        self.cv           = threading.Condition(threading.Lock())
         self.mem          = MemPassthrough(self.cv,self.cpu.mem)
         self.memw         = MemPassthrough(self.cv,self.cpu.memw)
         self.thread       = threading.Thread(target = self.threadMain)
@@ -116,16 +121,6 @@ class Machine:
             return self.cpu.pc
 
     def threadMain(self):
-        while self.running:
-            try:
-                self.threadMainSignal()
-                #only returns when it's done
-                break
-            except KeyboardInterrupt:
-                armv2.DebugLog('received kbd int in the cpu thread')
-                continue
-
-    def threadMainSignal(self):
         with self.cv:
             while self.running:
                 armv2.DebugLog('main thread loop')
