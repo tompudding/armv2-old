@@ -100,15 +100,18 @@ class Machine:
 
     @property
     def regs(self):
-        armv2.DebugLog('regs getter')
         with self.cv:
-            armv2.DebugLog('regs gotten!')
             return self.cpu.regs
 
     @regs.setter
     def regs(self,value):
         with self.cv:
             self.cpu.regs = value
+
+    @property
+    def stepping(self):
+        with self.cv:
+            return self.steps_to_run != 0
 
     @property
     def mode(self):
@@ -123,7 +126,6 @@ class Machine:
     def threadMain(self):
         with self.cv:
             while self.running:
-                armv2.DebugLog('main thread loop')
                 while self.running and self.steps_to_run == 0:
                     armv2.DebugLog('about to wait')
                     self.cv.wait(1)

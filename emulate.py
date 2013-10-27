@@ -4,6 +4,7 @@ import debugger
 import sys
 import hardware
 import pygame
+import threading
 from pygame.locals import *
 from optparse import OptionParser
 
@@ -28,6 +29,8 @@ def mainloop(dbg,machine):
         if event.type == pygame.locals.KEYDOWN:
             machine.keyboard.KeyDown(event.key)
         elif event.type == pygame.locals.KEYUP:
+            if event.key == pygame.locals.K_x:
+                dbg.Stop()
             machine.keyboard.KeyUp(event.key)
 
 def main(stdscr):
@@ -41,7 +44,7 @@ def main(stdscr):
     curses.use_default_colors()
     machine = hardware.Machine(cpu_size = 2**21, cpu_rom = 'boot.rom')
     try:
-        machine.AddHardware(hardware.Keyboard())
+        machine.AddHardware(hardware.Keyboard(),name='keyboard')
         machine.AddHardware(hardware.LCDDisplay(),name='display')
 
         dbg = debugger.Debugger(machine,stdscr)
@@ -52,12 +55,8 @@ def main(stdscr):
 
         done = False
         while not done:
-            try:
-                mainloop(dbg,machine)
-            except KeyboardInterrupt:
-                armv2.DebugLog('kbd int')
-                dbg.Stop()                    
-
+            mainloop(dbg,machine)
+           
     finally:
         armv2.DebugLog('deleting machine')
         machine.Delete()
