@@ -295,10 +295,6 @@ class Debugger(object):
                 self.stopped = True
         except KeyboardInterrupt:
             armv2.DebugLog('kbd int 3')
-            try:
-                self.machine.cv.release()
-            except RuntimeError:
-                pass
             self.stopped = True
         
     def StepNum(self,num):
