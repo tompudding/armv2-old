@@ -127,17 +127,13 @@ class Machine:
         with self.cv:
             while self.running:
                 while self.running and self.steps_to_run == 0:
-                    armv2.DebugLog('about to wait')
                     self.cv.wait(1)
-                    armv2.DebugLog('waited')
                 if not self.running:
                     break
-                armv2.DebugLog('Cpu thread running with %d ticks' % self.steps_to_run)
                 self.cpu.Step(self.steps_to_run)
                 self.steps_to_run = 0
 
     def Step(self,num):
-        armv2.DebugLog('step lock %d' % num)
         with self.cv:
             self.steps_to_run = num
             self.cv.notify()
