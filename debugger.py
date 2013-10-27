@@ -292,7 +292,7 @@ class Debugger(object):
         result = None
         self.stopped = False
         if armv2.Status.Breakpoint == self.StepNumInternal(self.num_to_step):
-            self.stopped = True
+            self.Stop()
         
     def StepNum(self,num):
         self.num_to_step = num
@@ -325,3 +325,5 @@ class Debugger(object):
     def Stop(self):
         armv2.DebugLog("Stopped called")
         self.stopped = True
+        self.current_view.Select(self.machine.pc)
+        self.current_view.Centre(self.machine.pc)
