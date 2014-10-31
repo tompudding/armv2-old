@@ -3,8 +3,8 @@
 #include <stdarg.h>
 #include "hw_manager.h"
 
-armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode) {
-    if(NULL == cpu               || 
+enum armv2_status HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode) {
+    if(NULL == cpu               ||
        crd >= HW_MANAGER_NUMREGS ||
        crm >= HW_MANAGER_NUMREGS ||
        crn >= HW_MANAGER_NUMREGS ||
@@ -22,7 +22,7 @@ armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, u
             uint32_t device_num  = cpu->hardware_manager.regs[crd];
             uint32_t mem_start   = cpu->hardware_manager.regs[crn];
             uint32_t mem_end     = cpu->hardware_manager.regs[crm];
-            armv2status_t result = map_memory(cpu,device_num,mem_start,mem_end);
+            enum armv2_status result = map_memory(cpu,device_num,mem_start,mem_end);
             //FIXME: set aux here on error
             return result;
         }
@@ -47,7 +47,7 @@ armv2status_t HwManagerDataOperation(armv2_t *cpu, uint32_t crm, uint32_t aux, u
     return ARMV2STATUS_UNIVERSE_BROKEN;
 }
 
-armv2status_t HwManagerRegisterTransfer(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t rd, uint32_t crn, uint32_t opcode) {
+enum armv2_status HwManagerRegisterTransfer(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t rd, uint32_t crn, uint32_t opcode) {
     int load = opcode&1;
     opcode >>= 1;
     if(NULL == cpu) {

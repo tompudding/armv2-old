@@ -5,7 +5,7 @@
 #include <string.h>
 #include "armv2.h"
 
-armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
+enum armv2_status run_armv2(armv2_t *cpu, int32_t instructions) {
     uint32_t running = 1;
     //for(running=1;running;cpu->pc = (cpu->pc+4)&0x3ffffff) {
     //instructions of -1 means run forever
@@ -16,12 +16,12 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
         if(instructions > 0) {
             instructions--;
         }
-        armv2exception_t exception = EXCEPT_NONE;
+        enum armv2_exception exception = EXCEPT_NONE;
         cpu->pc = (cpu->pc+4)&0x3ffffff;
         //check if PC is valid
         SETPC(cpu,cpu->pc + 8);
 
-        //Before we do anything, we check to see if we need to do and FIQ or an IRQ
+        //Before we do anything, we check to see if we need to do an FIQ or an IRQ
         if(FLAG_CLEAR(cpu,F)) {
             if(PIN_ON(cpu,F)) {
                 //crumbs, time to do an FIQ!
@@ -39,8 +39,11 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
         if(FLAG_CLEAR(cpu,I)) {
             if(PIN_ON(cpu,I)) {
                 //crumbs, time to do an FIQ!
+                //set the LR first
                 cpu->regs.actual[R14_I] = cpu->regs.actual[PC];
+                //set the mode to IRQ mode
                 SETMODE(cpu,MODE_IRQ);
+                //mask interrupts so they won't be taken next time.
                 SETFLAG(cpu,I);
                 cpu->pc = 0x18-4;
                 for(uint32_t i=13;i<15;i++) {
@@ -49,7 +52,7 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
                 continue;
             }
         }
-        
+
         if(cpu->page_tables[PAGEOF(cpu->pc)] == NULL) {
             //Trying to execute an unmapped page!
             //some sort of exception
@@ -57,7 +60,7 @@ armv2status_t run_armv2(armv2_t *cpu, int32_t instructions) {
             goto handle_exception;
         }
 
-        
+
         uint32_t instruction = DEREF(cpu,cpu->pc);
         switch(CONDITION_BITS(instruction)) {
         case COND_EQ: //Z set

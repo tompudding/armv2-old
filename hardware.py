@@ -24,7 +24,6 @@ class Keyboard(armv2.Device):
         armv2.DebugLog('keyboard writer %x %x\n' % (addr,value))
         return 0
 
-
 class LCDDisplay(armv2.Device):
     id = 0x41414142
     char_size = (40,48)

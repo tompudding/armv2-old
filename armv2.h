@@ -34,10 +34,8 @@
 #define PAGE_MASK            (PAGE_SIZE-1)
 #define NUM_PAGE_TABLES      (1<<(26 - PAGE_SIZE_BITS))
 #define WORDS_PER_PAGE       (1<<(PAGE_SIZE_BITS-2))
-//Max memory is 64MB - 1 page. The final page is special and is used for interrupt handlers
-#define MAX_MEMORY           ((1<<26) - PAGE_SIZE)
+#define MAX_MEMORY           (1<<26)
 #define HW_DEVICES_MAX       (64)
-#define INTERRUPT_PAGE_NUM   (NUM_PAGE_TABLES-1)
 
 #define PAGEOF(addr)         ((addr)>>PAGE_SIZE_BITS)
 #define INPAGE(addr)         ((addr)&PAGE_MASK)
@@ -105,7 +103,7 @@
 #define FLAG_INIT 1
 #define CPU_INITIALISED(cpu) ( (((cpu)->flags)&FLAG_INIT) )
 
-typedef enum {
+enum armv2_exception {
     EXCEPT_RST                   = 0,
     EXCEPT_UNDEFINED_INSTRUCTION = 1,
     EXCEPT_SOFTWARE_INTERRUPT    = 2,
@@ -117,7 +115,7 @@ typedef enum {
     EXCEPT_NONE                  = 8,
     EXCEPT_BREAKPOINT            = 9,
     EXCEPT_MAX,
-} armv2exception_t;
+};
 
 typedef struct {
     uint32_t mode;
@@ -175,37 +173,41 @@ typedef struct {
     uint32_t pins;
 } armv2_t;
 
-typedef armv2exception_t (*instruction_handler_t)(armv2_t *cpu,uint32_t instruction);
-armv2status_t init(armv2_t *cpu, uint32_t memsize);
-armv2status_t load_rom(armv2_t *cpu, const char *filename);
-armv2status_t cleanup_armv2(armv2_t *cpu);
-armv2status_t run_armv2(armv2_t *cpu, int32_t instructions);
-armv2status_t add_hardware(armv2_t *cpu, hardware_device_t *device);
-armv2status_t map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint32_t end);
-armv2status_t add_mapping(hardware_mapping_t **head, hardware_mapping_t *item);
+typedef enum armv2_exception (*instruction_handler_t)(armv2_t *cpu,uint32_t instruction);
+enum armv2_status init(armv2_t *cpu, uint32_t memsize);
+enum armv2_status load_rom(armv2_t *cpu, const char *filename);
+enum armv2_status cleanup_armv2(armv2_t *cpu);
+enum armv2_status run_armv2(armv2_t *cpu, int32_t instructions);
+enum armv2_status add_hardware(armv2_t *cpu, hardware_device_t *device);
+enum armv2_status map_memory(armv2_t *cpu, uint32_t device_num, uint32_t start, uint32_t end);
+enum armv2_status add_mapping(hardware_mapping_t **head, hardware_mapping_t *item);
 
 //instruction handlers
-armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
-armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction);
-armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction);
-armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction);
-armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t instruction);
-armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction);
-armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction);
-armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction);
-armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
-armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception ALUInstruction                         (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception SwapInstruction                        (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception BranchInstruction                      (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction);
+enum armv2_exception CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction);
 
 #define COPROCESSOR_HW_MANAGER (1)
 #define COPROCESSOR_MMU        (2)
+#define COPROCESSOR_INTERRUPT_CONTROLLER (3)
 
-typedef armv2status_t (*coprocessor_data_operation_t)(armv2_t*,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
+typedef enum armv2_status (*coprocessor_data_operation_t)(armv2_t*,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t);
 
-armv2status_t HwManagerDataOperation   (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
-armv2status_t HwManagerRegisterTransfer(armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+enum armv2_status HwManagerDataOperation       (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+enum armv2_status HwManagerRegisterTransfer    (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
 
-armv2status_t MmuDataOperation         (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
-armv2status_t MmuRegisterTransfer      (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+enum armv2_status MmuDataOperation             (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+enum armv2_status MmuRegisterTransfer          (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+
+enum armv2_status InterruptControllerOperation (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
+enum armv2_status InterruptControllerTransfer  (armv2_t *cpu, uint32_t crm, uint32_t aux, uint32_t crd, uint32_t crn, uint32_t opcode);
 
 void flog(char* fmt, ...);
 

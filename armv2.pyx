@@ -11,15 +11,15 @@ MAX_26BIT          = 1<<26
 SWI_BREAKPOINT     = carmv2.SWI_BREAKPOINT
 
 class CpuExceptions:
-    Reset                = carmv2.EXCEPT_RST                   
-    UndefinedInstruction = carmv2.EXCEPT_UNDEFINED_INSTRUCTION 
-    SoftwareInterrupt    = carmv2.EXCEPT_SOFTWARE_INTERRUPT    
-    PrefetchAboprt       = carmv2.EXCEPT_PREFETCH_ABORT        
-    DataAbort            = carmv2.EXCEPT_DATA_ABORT            
-    Address              = carmv2.EXCEPT_ADDRESS               
-    Irq                  = carmv2.EXCEPT_IRQ                   
-    Fiq                  = carmv2.EXCEPT_FIQ                   
-    Breakpoint           = carmv2.EXCEPT_BREAKPOINT         
+    Reset                = carmv2.EXCEPT_RST
+    UndefinedInstruction = carmv2.EXCEPT_UNDEFINED_INSTRUCTION
+    SoftwareInterrupt    = carmv2.EXCEPT_SOFTWARE_INTERRUPT
+    PrefetchAboprt       = carmv2.EXCEPT_PREFETCH_ABORT
+    DataAbort            = carmv2.EXCEPT_DATA_ABORT
+    Address              = carmv2.EXCEPT_ADDRESS
+    Irq                  = carmv2.EXCEPT_IRQ
+    Fiq                  = carmv2.EXCEPT_FIQ
+    Breakpoint           = carmv2.EXCEPT_BREAKPOINT
 
 class Status:
     Ok              = carmv2.ARMV2STATUS_OK
@@ -48,7 +48,7 @@ class Registers(object):
                'pc' : 15}
     for i in xrange(NUM_EFFECTIVE_REGS):
         mapping['r%d' % i] = i
-               
+
     def __init__(self,cpu):
         self.cpu = cpu
 
@@ -149,14 +149,14 @@ class WordMemory(object):
 
 
 #cdef void readCallback(void *device,uint32_t addr, uint32_t value):
-    
+
 
 cdef class Device:
     id            = None
     readCallback  = None
     writeCallback = None
     cdef carmv2.hardware_device_t *cdevice
-    
+
     def __cinit__(self, *args, **kwargs):
         self.cdevice = <carmv2.hardware_device_t*>malloc(sizeof(carmv2.hardware_device_t))
         self.cdevice.device_id = self.id
@@ -179,7 +179,7 @@ cdef class Device:
                 f.write(str(type(self)) + '\n' + str(self.writeCallback) + '\n' + str(addr) + ',' + str(value) + '\n')
             if self.writeCallback:
                 return self.writeCallback(int(addr),int(value))
-                    
+
             return 0
 
     def __dealloc__(self):
@@ -208,7 +208,7 @@ cdef class Armv2:
         self.cpu = <carmv2.armv2_t*>malloc(sizeof(carmv2.armv2_t))
         if self.cpu == NULL:
             raise MemoryError()
-    
+
     def __dealloc__(self):
         if self.cpu != NULL:
             carmv2.cleanup_armv2(self.cpu)
@@ -262,7 +262,7 @@ cdef class Armv2:
 
     @property
     def pc(self):
-        #The first thing the run loop does is add 4 to PC, so PC is effectively 4 greater than 
+        #The first thing the run loop does is add 4 to PC, so PC is effectively 4 greater than
         #it appears to be
         return self.cpu.pc + 4
 
@@ -271,7 +271,7 @@ cdef class Armv2:
         return self.regs.pc&3
 
     def __init__(self,size,filename = None):
-        cdef carmv2.armv2status_t result
+        cdef carmv2.armv2_status result
         cdef uint32_t mem = size
         result = carmv2.init(self.cpu,mem)
         self.regs = Registers(self)

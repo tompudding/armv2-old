@@ -1,7 +1,7 @@
 #ifndef __ARMV2_COMMON_H__
 #define __ARMV2_COMMON_H__
 
-typedef enum {
+enum armv2_status {
     ARMV2STATUS_OK = 0           ,
     ARMV2STATUS_INVALID_CPUSTATE ,
     ARMV2STATUS_MEMORY_ERROR     ,
@@ -15,6 +15,6 @@ typedef enum {
     ARMV2STATUS_NO_SUCH_DEVICE   ,
     ARMV2STATUS_ALREADY_MAPPED   ,
     ARMV2STATUS_INVALID_PAGE     ,
-} armv2status_t;
+};
 
 #endif

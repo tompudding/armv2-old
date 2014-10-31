@@ -69,7 +69,7 @@ uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t 
             op2 += 4;
         }
     }
-        
+
     switch(shift_type) {
     case ALU_SHIFT_LSL:
         if(shift_amount < 32) {
@@ -83,7 +83,7 @@ uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t 
         else {
             shift_c = op2 = 0;
         }
-            
+
         break;
     case ALU_SHIFT_LSR:
         if(shift_amount == 0) {
@@ -104,7 +104,7 @@ uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t 
         else {
             shift_c = op2 = 0;
         }
-            
+
         break;
     case ALU_SHIFT_ASR:
         if(shift_amount == 0) {
@@ -150,7 +150,7 @@ uint32_t OperandShift(armv2_t *cpu, uint32_t bits, uint32_t type_flag, uint32_t 
     return op2;
 }
 
-static armv2status_t PerformLoad(page_info_t *page, uint32_t addr, uint32_t *out) {
+static enum armv2_status PerformLoad(page_info_t *page, uint32_t addr, uint32_t *out) {
     uint32_t value;
     if(NULL == page || NULL == out) {
         return ARMV2STATUS_INVALID_ARGS;
@@ -170,7 +170,7 @@ static armv2status_t PerformLoad(page_info_t *page, uint32_t addr, uint32_t *out
     return ARMV2STATUS_OK;
 }
 
-static armv2status_t PerformStore(page_info_t *page, uint32_t addr, uint32_t value) {
+static enum armv2_status PerformStore(page_info_t *page, uint32_t addr, uint32_t value) {
     if(NULL == page) {
         return ARMV2STATUS_INVALID_ARGS;
     }
@@ -188,7 +188,7 @@ static armv2status_t PerformStore(page_info_t *page, uint32_t addr, uint32_t val
     return ARMV2STATUS_OK;
 }
 
-armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception ALUInstruction                         (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t opcode   = (instruction>>21)&0xf;
     uint32_t rn       = (instruction>>16)&0xf;
@@ -271,7 +271,7 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
         break;
     case ALU_OPCODE_SBC:
         op1 = rn_val;
-        op2 = ~source_val; 
+        op2 = ~source_val;
         result64 = ((uint64_t)op1) + op2 + carry;
         result = result64&0xffffffff;
         shift_c = result64>>32;
@@ -326,12 +326,12 @@ armv2exception_t ALUInstruction                         (armv2_t *cpu,uint32_t i
             GETREG(cpu,rd) = result;
         }
     }
-    
+
     //LOG("%s r%d %08x %08x\n",__func__,rd,GETREG(cpu,rd),cpu->regs.actual[PC]);
     return EXCEPT_NONE;
 }
 
-armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception MultiplyInstruction                    (armv2_t *cpu,uint32_t instruction)
 {
     //mul rd,rm,rs means rd = (rm*rs)&0xffffffff
     //mla rd,rm,rs,rn means rd = (rm*rs + rn)&0xffffffff
@@ -376,7 +376,7 @@ armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t i
         uint32_t z = result == 0 ? FLAG_Z : 0;
         cpu->regs.actual[PC] = (cpu->regs.actual[PC]&0x3fffffff)|n|z;
     }
-    
+
     return EXCEPT_NONE;
 }
 
@@ -387,7 +387,7 @@ armv2exception_t MultiplyInstruction                    (armv2_t *cpu,uint32_t i
 #define SDT_WRITE_BACK 0x00200000
 #define SDT_LDR        0x00100000
 
-armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception SingleDataTransferInstruction          (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
     //LDR/STR{B}{T} rd,address
@@ -419,7 +419,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
     else {
         rn_val = GETREG(cpu,rn);
     }
-    
+
     if(instruction&SDT_PREINDEX) {
         //we do the addition before the lookup
         if(instruction&SDT_OFFSET_ADD) {
@@ -429,7 +429,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             rn_val -= op2;
         }
     }
-                
+
     //Do the lookup
     if(rn_val&0xfc000000) {
         //The address bus is 26 bits so this is a address exception
@@ -452,14 +452,14 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
         if(GETMODE(cpu) == MODE_USR && !(page->flags&PERM_READ)) {
             return EXCEPT_DATA_ABORT;
         }
-        
+
         LOG("Page at %p has memory %p, rc %p wc %p flags %x\n",page,page->memory,page->read_callback,page->write_callback,page->flags);
         if(ARMV2STATUS_OK != PerformLoad(page,rn_val,&value)) {
             return EXCEPT_DATA_ABORT;
         }
-        
+
         LOG("Have value %08x and %d\n",value,instruction&SDT_LOAD_BYTE);
-        if(instruction&SDT_LOAD_BYTE) { 
+        if(instruction&SDT_LOAD_BYTE) {
             value = (value>>((rn_val&3)<<3))&0xff;
         }
 
@@ -486,7 +486,7 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             value = GETREG(cpu,rd);
         }
         LOG("b\n");
-        
+
         if(instruction&SDT_LOAD_BYTE) {
             uint32_t byte_mask = 0xff<<((rn_val&3)<<3);
             uint32_t rest_mask = ~byte_mask;
@@ -522,16 +522,16 @@ armv2exception_t SingleDataTransferInstruction          (armv2_t *cpu,uint32_t i
             GETREG(cpu,rn) = rn_val;
         }
     }
-    
+
     return EXCEPT_NONE;
 }
-armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception BranchInstruction                      (armv2_t *cpu,uint32_t instruction)
 {
     LOG("%s\n",__func__);
     if((instruction>>24&1)) {
         GETREG(cpu,LR) = cpu->pc+4;
     }
-    cpu->pc = (cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4)&0xffffff; 
+    cpu->pc = (cpu->pc + 8 + ((instruction&0xffffff)<<2) - 4)&0xffffff;
     //+8 due to the weird prefetch thing, -4 for the hack as we're going to add 4 in the next loop
 
     return EXCEPT_NONE;
@@ -543,7 +543,7 @@ armv2exception_t BranchInstruction                      (armv2_t *cpu,uint32_t i
 #define MDT_OFFSET_ADD SDT_OFFSET_ADD
 #define MDT_PREINDEX   SDT_PREINDEX
 
-armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception MultiDataTransferInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t rn         = (instruction>>16)&0xf;
     uint32_t ldm        = instruction&MDT_LDM;
@@ -555,7 +555,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
     uint32_t address;
     uint32_t num_registers = __builtin_popcount(instruction&0xffff);
     int rs;
-    armv2exception_t retval = EXCEPT_NONE;
+    enum armv2_exception retval = EXCEPT_NONE;
     uint32_t write_back_old = 0;
     uint32_t write_back_value = 0;
     uint32_t first_loop = 1;
@@ -587,7 +587,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
         //0x03fffffc will cause the second to be written to (0x04000000&0x03ffffff) == 0. Hmmm
         retval = EXCEPT_ADDRESS;
         //we don't return, we're supposed to complete the instruction
-        
+
     }
 
     if(write_back) {
@@ -613,7 +613,7 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
             continue;
         }
         address += 4;
-    
+
         page = cpu->page_tables[PAGEOF(address)];
         if(NULL == page) {
             //This is a data abort. Could also check for permission here
@@ -680,19 +680,19 @@ armv2exception_t MultiDataTransferInstruction           (armv2_t *cpu,uint32_t i
             (void) PerformStore(page,address,value);
         }
     }
-    
+
     return retval;
 }
 
 
-armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception SwapInstruction                        (armv2_t *cpu,uint32_t instruction)
 {
     //LOG("%s\n",__func__);
     uint32_t rm   = instruction&0xf;
     uint32_t rd   = (instruction>>12)&0xf;
     uint32_t rn   = (instruction>>16)&0xf;
     uint32_t byte = instruction&SDT_LOAD_BYTE;
-    uint32_t value;    
+    uint32_t value;
     page_info_t *page;
 
     uint32_t address = rn == PC ? (cpu->pc | GETMODEPSR(cpu)) : GETREG(cpu,rn);
@@ -719,7 +719,7 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     if(ARMV2STATUS_OK != PerformLoad(page,address,&value)) {
         return EXCEPT_DATA_ABORT;
     }
-    if(byte) { 
+    if(byte) {
         value = (value>>((address&3)<<3))&0xff;
     }
 
@@ -739,7 +739,7 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     else {
         value = GETREG(cpu,rm);
     }
-        
+
     if(byte) {
         uint32_t byte_mask = 0xff<<((address&3)<<3);
         uint32_t rest_mask = ~byte_mask;
@@ -757,18 +757,18 @@ armv2exception_t SwapInstruction                        (armv2_t *cpu,uint32_t i
     return EXCEPT_NONE;
 }
 
-armv2exception_t SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception SoftwareInterruptInstruction           (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t type = instruction&0x00ffffff;
     //LOG("%s %x %x %x\n",__func__,type,SWI_BREAKPOINT,type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT);
     return type == SWI_BREAKPOINT ? EXCEPT_BREAKPOINT : EXCEPT_SOFTWARE_INTERRUPT;
 }
-//Not bothering with a coprocessor for now, so these are noops
-armv2exception_t CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
+//Not bothering transfers yet
+enum armv2_exception CoprocessorDataTransferInstruction     (armv2_t *cpu,uint32_t instruction)
 {
     return EXCEPT_NONE;
 }
-armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t crm      = (instruction>> 0)&0xf;
     uint32_t aux      = (instruction>> 5)&0x7;
@@ -785,6 +785,8 @@ armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t i
     case COPROCESSOR_MMU:
         handler = MmuRegisterTransfer;
         break;
+    case COPROCESSOR_INTERRUPT_CONTROLLER:
+        handler = InterruptControllerTransfer;
     default:
         handler = NULL;
         break;
@@ -794,7 +796,7 @@ armv2exception_t CoprocessorRegisterTransferInstruction (armv2_t *cpu,uint32_t i
     }
     return EXCEPT_NONE;
 }
-armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
+enum armv2_exception CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t instruction)
 {
     uint32_t crm      = (instruction>> 0)&0xf;
     uint32_t aux      = (instruction>> 5)&0x7;
@@ -811,6 +813,8 @@ armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t i
     case COPROCESSOR_MMU:
         handler = MmuDataOperation;
         break;
+    case COPROCESSOR_INTERRUPT_CONTROLLER:
+        handler = InterruptControllerOperation;
     default:
         handler = NULL;
         break;
@@ -818,6 +822,6 @@ armv2exception_t CoprocessorDataOperationInstruction    (armv2_t *cpu,uint32_t i
     if(handler) {
         (void) handler(cpu,crm,aux,crd,crn,opcode);
     }
-    
+
     return EXCEPT_NONE;
 }

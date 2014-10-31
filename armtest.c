@@ -7,7 +7,7 @@
 
 int main(int argc, char *argv[]) {
     armv2_t armv2;
-    armv2status_t result = ARMV2STATUS_OK;
+    enum armv2_status result = ARMV2STATUS_OK;
 
     if(ARMV2STATUS_OK != (result = init(&armv2,(1<<20)))) {
         LOG("Error %d creating\n",result);
